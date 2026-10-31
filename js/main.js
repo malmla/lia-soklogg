@@ -8,6 +8,7 @@ import { createFilterBar } from "./components/filterBar.js";
 import { createThemeToggle } from "./components/themeToggle.js";
 import { isFiltering, matchesFilters } from "./model/filters.js";
 import { planImport } from "./model/importPlan.js";
+import { FIELDS } from "./model/application.js";
 import { sortApplications } from "./model/sorting.js";
 import {
   exportWorkbook,
@@ -23,7 +24,7 @@ import { must } from "./utils/dom.js";
 const STORAGE_KEY = "lia-applications";
 const EXPORT_REMINDER_KEY = "lia-export-reminder";
 const EXPORT_FILENAME_KEY = "lia-export-filename";
-const REPOSITORY_API_URL = "https://api.github.com/repos/malmla/bransch-tracker";
+const REPOSITORY_API_URL = "https://api.github.com/repos/malmla/lia-soklogg";
 
 async function updateVersionTracker(element) {
   try {
@@ -102,9 +103,16 @@ export function startApp() {
     cancelButton: must("cancel-btn"),
     summary: must("form-error"),
     onSubmit(values, id) {
+      const before = id && store.getState().applications.find((a) => a.id === id);
       const result = store.saveApplication(values, id);
       if (result.ok) {
         analytics.trackFeature(id ? "application_edit" : "application_add");
+        // Adding counts filled fields (the date defaults to today, so it is skipped); editing counts changed ones
+        const used = FIELDS.filter((name) => {
+          const value = String(values[name] ?? "").trim();
+          return before ? value !== (before[name] ?? "") : value && name !== "date";
+        });
+        analytics.trackFields(used, id ? "edit" : "add");
         announce(id ? "Ansökan uppdaterad." : "Ansökan sparad.");
       }
       return result;

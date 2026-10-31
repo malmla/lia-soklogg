@@ -9,6 +9,11 @@ const TRACKED_FEATURES = new Set([
   "filter_reset",
   "theme_toggle",
 ]);
+const APPLICATION_FIELDS = new Set([
+  "date", "company", "city", "contactPerson", "title", "email", "phone", "method", "status",
+  "responseReceived", "interview", "offered", "comment", "nextStep", "followUpDate", "notes",
+]);
+const SAVE_TYPES = new Set(["add", "edit"]);
 const FILTER_FIELDS = new Set(["company", "status", "interview", "offered", "followUp"]);
 const FILTER_MODES = new Map([
   ["", "all"],
@@ -148,6 +153,18 @@ export function createAnalyticsConsent(toggle, dialog, { onError = () => {} } = 
     trackFeature(featureName) {
       if (!enabled || !TRACKED_FEATURES.has(featureName)) return;
       window.dataLayer.push({ event: "feature_used", feature_name: featureName });
+    },
+    /** Sends one event per field name (never the value) so field usage can be compared. */
+    trackFields(fieldNames, saveType) {
+      if (!enabled || !SAVE_TYPES.has(saveType)) return;
+      for (const fieldName of fieldNames) {
+        if (!APPLICATION_FIELDS.has(fieldName)) continue;
+        window.dataLayer.push({
+          event: "application_field_used",
+          field_name: fieldName,
+          save_type: saveType,
+        });
+      }
     },
     trackFilter(field, mode) {
       if (!enabled || !FILTER_FIELDS.has(field)) return;
