@@ -1,83 +1,97 @@
 import { h } from "../utils/dom.js";
 
-const TIER_LABELS = { gold: "Guld", silver: "Silver", bronze: "Brons", premium: "Premium" };
-
 const missing = (label) => h("span", { class: "missing" }, `${label} saknas`);
 
 const actionButton = (text, action, label, extraClass = "") =>
   h("button", { type: "button", class: `btn small ${extraClass}`.trim(), "data-action": action, "aria-label": label }, text);
 
+const isOverdue = (app, today) => Boolean(app.followUpDate) && app.followUpDate < today;
+
 /** Everything that affects how a card looks; used to skip rebuilding unchanged cards. */
-export function cardSignature({ app, tier }) {
+export function cardSignature({ app, today }) {
   return JSON.stringify([
-    app.rank, app.company, app.city, app.contactPerson, app.email, app.phone, app.motivation, app.notes, tier,
+    app.date, app.company, app.city, app.contactPerson, app.title, app.email, app.phone, app.method,
+    app.status, app.responseReceived, app.interview, app.offered, app.comment, app.nextStep,
+    app.followUpDate, app.notes, isOverdue(app, today),
   ]);
 }
 
-export function createCard({ app, tier }) {
+/** Notes often hold a link (for example a LinkedIn profile); only http(s) links are made clickable. */
+function noteContent(value) {
+  return /^https?:\/\/\S+$/i.test(value)
+    ? h("a", { href: value, target: "_blank", rel: "noopener noreferrer" }, value)
+    : value;
+}
+
+export function createCard({ app, today }) {
   const name = app.company || "företag utan namn";
 
-  const rank = h(
+  const date = h(
     "div",
-    { class: "rank" },
-    h("span", { class: "rank-label" }, "Rang"),
-    h("span", { class: "rank-number" }, app.rank ?? "–"),
-    tier && h("span", { class: "sr-only" }, ` (${TIER_LABELS[tier]})`)
+    { class: "date-badge" },
+    h("span", { class: "date-label" }, "Datum"),
+    h("span", { class: "date-value" }, app.date || "–"),
   );
 
   const heading = h(
     "h3",
     {},
     app.company || missing("Företag"),
-    " ",
-    h("span", { class: "city" }, app.city ? `· ${app.city}` : missing("Ort"))
+    app.city && h("span", { class: "city" }, ` · ${app.city}`),
+    app.status && h("span", { class: "status-badge", dataset: { status: app.status } }, app.status),
   );
 
-  const email = app.email ? h("a", { href: `mailto:${app.email}` }, app.email) : missing("E-post");
-  const phone = app.phone
-    ? h("a", { href: `tel:${app.phone.replace(/[^\d+]/g, "")}` }, app.phone)
-    : missing("Telefonnummer");
   const meta = h(
     "div",
     { class: "meta" },
-    h("span", {}, app.contactPerson ? `👤 ${app.contactPerson}` : missing("Kontaktperson")),
-    email,
-    phone
+    app.contactPerson && h("span", {}, `👤 ${app.contactPerson}${app.title ? `, ${app.title}` : ""}`),
+    !app.contactPerson && app.title && h("span", {}, app.title),
+    app.email && h("a", { href: `mailto:${app.email}` }, app.email),
+    app.phone && h("a", { href: `tel:${app.phone.replace(/[^\d+]/g, "")}` }, app.phone),
+    app.method && h("span", {}, `Kontakt: ${app.method}`),
   );
 
-  const notes = [["Motivering", app.motivation], ["Anteckningar", app.notes]]
+  const answers = [
+    ["Svar mottaget", app.responseReceived],
+    ["Intervju", app.interview],
+    ["LIA-plats erbjuden", app.offered],
+  ].filter(([, value]) => value);
+  const progress = answers.length
+    ? h(
+        "div",
+        { class: "meta" },
+        ...answers.map(([label, value]) => h("span", { class: value === "Ja" ? "yes" : "no" }, `${label}: ${value}`)),
+      )
+    : null;
+
+  const followUp = app.followUpDate
+    ? h(
+        "p",
+        { class: isOverdue(app, today) ? "text overdue" : "text" },
+        h("strong", {}, "Uppföljning"),
+        isOverdue(app, today) ? `${app.followUpDate} (försenad)` : app.followUpDate,
+      )
+    : null;
+
+  const texts = [
+    ["Nästa steg", app.nextStep],
+    ["Kommentar", app.comment],
+  ]
     .filter(([, value]) => value)
     .map(([label, value]) => h("p", { class: "text" }, h("strong", {}, label), value));
+  const notes = app.notes ? h("p", { class: "text" }, h("strong", {}, "Notes"), noteContent(app.notes)) : null;
 
   const actions = h(
     "div",
     { class: "actions" },
     actionButton("Redigera", "edit", `Redigera ${name}`),
     actionButton("Ta bort", "delete", `Ta bort ${name}`, "danger"),
-    actionButton("▲", "move-up", `Flytta upp ${name}`, "icon"),
-    actionButton("▼", "move-down", `Flytta ned ${name}`, "icon")
   );
 
   return h(
     "li",
-    {
-      class: tier ? `item tier-${tier}` : "item",
-      draggable: "true",
-      dataset: { id: app.id, name },
-    },
-    h(
-      "button",
-      {
-        type: "button",
-        class: "drag-handle",
-        "data-action": "grab",
-        "aria-label": `Flytta ${name}`,
-        "aria-describedby": "dnd-help",
-        "aria-pressed": "false",
-      },
-      "⠿"
-    ),
-    rank,
-    h("div", { class: "item-body" }, heading, meta, ...notes, actions)
+    { class: "item", dataset: { id: app.id, name } },
+    date,
+    h("div", { class: "item-body" }, heading, meta, progress, followUp, ...texts, notes, actions),
   );
 }

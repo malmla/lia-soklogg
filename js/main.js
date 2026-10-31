@@ -8,7 +8,7 @@ import { createFilterBar } from "./components/filterBar.js";
 import { createThemeToggle } from "./components/themeToggle.js";
 import { isFiltering, matchesFilters } from "./model/filters.js";
 import { planImport } from "./model/importPlan.js";
-import { sortApplications, tierFor } from "./model/ranking.js";
+import { sortApplications } from "./model/sorting.js";
 import {
   exportWorkbook,
   ExcelError,
@@ -16,6 +16,7 @@ import {
 } from "./services/excel.js";
 import { createStorage } from "./services/storage.js";
 import { createStore } from "./state/store.js";
+import { todayIso } from "./utils/date.js";
 import { downloadBlob, writeBlobToFile } from "./utils/download.js";
 import { must } from "./utils/dom.js";
 
@@ -123,7 +124,6 @@ export function startApp() {
 
   const list = createApplicationList(must("list"), {
     emptyEl: must("empty"),
-    announce,
     onEdit(id) {
       const app = store.getState().applications.find((a) => a.id === id);
       if (app) form.edit(app);
@@ -138,16 +138,6 @@ export function startApp() {
       announce("Ansökan borttagen.");
       must("list-heading").focus();
     },
-    onMove(id, targetId, after) {
-      const rank = store.move(id, targetId, after);
-      if (rank !== null) {
-        analytics.trackFeature("reorder");
-        const name =
-          store.getState().applications.find((a) => a.id === id)?.company ||
-          "Företaget";
-        announce(`${name} flyttad till rang ${rank}.`);
-      }
-    },
   });
 
   const count = must("count");
@@ -155,17 +145,14 @@ export function startApp() {
   function render({ applications, filters }) {
     const total = applications.length;
     const filtering = isFiltering(filters);
+    const today = todayIso();
 
-    // Rank colors depend on each application's position in the full list, not the filtered list
-    const visible = [];
-    sortApplications(applications).forEach((app) => {
-      if (matchesFilters(app, filters)) {
-        visible.push({ app, tier: tierFor(app.rank, total) });
-      }
-    });
+    const visible = sortApplications(applications)
+      .filter((app) => matchesFilters(app, filters, today))
+      .map((app) => ({ app, today }));
 
     count.textContent = total;
-    dashboard.update(applications);
+    dashboard.update(applications, today);
     filterBar.update({ filters, filtering, shown: visible.length, total });
     list.update(visible, { total, filtering });
   }
@@ -312,7 +299,7 @@ export function startApp() {
         unchanged.length &&
           `${unchanged.length} identiska ansökningar lämnades oförändrade.`,
         result.incomplete &&
-          `${result.incomplete} har tomma fält, markerade med "saknas" i listan.`,
+          `${result.incomplete} saknar företagsnamn eller datum.`,
         !filenameSaved &&
           "Det importerade filnamnet kunde inte sparas för framtida exporter.",
       ].filter(Boolean);
@@ -375,7 +362,7 @@ export function startApp() {
         String(now.getMinutes()).padStart(2, "0"),
       ].join("-");
       const hasSaveFilePicker = typeof window.showSaveFilePicker === "function";
-      const defaultFilename = `bransch-${timestamp}.xlsx`;
+      const defaultFilename = `lia-soklogg-${timestamp}.xlsx`;
       const filename = hasSaveFilePicker
         ? importedFilename.replace(/\.xlsx?$/i, ".xlsx") || defaultFilename
         : defaultFilename;

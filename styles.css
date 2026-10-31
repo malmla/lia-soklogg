@@ -459,118 +459,20 @@ p.status {
 .item {
   position: relative;
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
   gap: .75rem 1rem;
   background: var(--surface);
   border-radius: var(--radius);
   padding: 1rem;
   box-shadow: var(--shadow);
-  cursor: grab;
-  transition: opacity .15s, transform .15s;
   /* Skip layout and paint for off-screen cards in long lists */
   content-visibility: auto;
   contain-intrinsic-size: auto 150px;
 }
 
-.item:active {
-  cursor: grabbing;
-}
-
-.item.dragging {
-  opacity: .45;
-  transform: scale(.98);
-  outline: 2px dashed var(--primary);
-}
-
-.item.grabbed {
-  outline: 3px solid var(--primary);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, .3);
-}
-
-.item.drop-before::before,
-.item.drop-after::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--primary);
-  z-index: 1;
-}
-
-.item.drop-before::before {
-  top: 0;
-}
-
-.item.drop-after::after {
-  bottom: 0;
-}
-
-.item.tier-gold {
-  --tier: var(--gold);
-  --tier-bg: var(--gold-bg);
-  --tier-badge: var(--gold-badge);
-  --tier-text: var(--gold-text);
-}
-
-.item.tier-silver {
-  --tier: var(--silver);
-  --tier-bg: var(--silver-bg);
-  --tier-badge: var(--silver-badge);
-  --tier-text: var(--silver-text);
-}
-
-.item.tier-bronze {
-  --tier: var(--bronze);
-  --tier-bg: var(--bronze-bg);
-  --tier-badge: var(--bronze-badge);
-  --tier-text: var(--bronze-text);
-}
-
-.item.tier-premium {
-  --tier: var(--premium);
-  --tier-bg: var(--premium-bg);
-  --tier-badge: var(--premium-badge);
-  --tier-text: var(--premium-text);
-}
-
-.item[class*="tier-"] {
-  background: var(--tier-bg);
-  border-left: 5px solid var(--tier);
-}
-
-.item[class*="tier-"] .rank {
-  background: var(--tier-badge);
-  color: var(--tier-text);
-  box-shadow: 0 0 0 2px var(--tier);
-}
-
-.drag-handle {
-  font: inherit;
-  font-size: 1.4rem;
-  line-height: 1;
-  min-width: 44px;
-  min-height: 44px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--muted);
-  cursor: grab;
-}
-
-.drag-handle:hover {
-  background: var(--surface-2);
-}
-
-.drag-handle[aria-pressed="true"] {
-  background: var(--primary);
-  color: var(--on-primary);
-}
-
-.rank {
-  min-width: 3.2rem;
+.date-badge {
+  min-width: 5.5rem;
   padding: .3rem .5rem;
   border-radius: 10px;
   background: var(--rank-bg);
@@ -578,18 +480,57 @@ p.status {
   display: flex;
   flex-direction: column;
   align-items: center;
-  line-height: 1.1;
+  line-height: 1.2;
 }
 
-.rank-label {
+.date-label {
   font-size: .7rem;
   text-transform: uppercase;
   letter-spacing: .05em;
 }
 
-.rank-number {
-  font-size: 1.4rem;
+.date-value {
+  font-size: .95rem;
   font-weight: 700;
+}
+
+.status-badge {
+  display: inline-block;
+  margin-left: .5rem;
+  padding: .05rem .55rem;
+  border-radius: 999px;
+  background: var(--rank-bg);
+  color: var(--rank-text);
+  font-size: .75rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.status-badge[data-status="Avslag"] {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.status-badge[data-status="LIA-plats klar"],
+.status-badge[data-status="Intervju bokad"] {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.meta .yes {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.text.overdue {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.next-deadline {
+  margin: .75rem 0 0;
+  color: var(--muted);
+  font-size: .9rem;
 }
 
 .item h3 {
@@ -829,11 +770,13 @@ p.status {
 
 @media (max-width: 600px) {
   .item {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .item-body {
-    grid-column: 1 / -1;
+  .date-badge {
+    flex-direction: row;
+    gap: .5rem;
+    justify-self: start;
   }
 
   .item .actions .btn {
@@ -860,11 +803,7 @@ p.status {
 }
 
 @media (forced-colors: active) {
-  .item.tier-gold, .item.tier-silver, .item.tier-bronze, .item.tier-premium {
-    border-left: 5px solid CanvasText;
-  }
-
-  .item.drop-before::before, .item.drop-after::after {
-    background: Highlight;
+  .status-badge {
+    border: 1px solid CanvasText;
   }
 }

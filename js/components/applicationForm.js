@@ -1,4 +1,5 @@
 import { FIELDS } from "../model/application.js";
+import { todayIso } from "../utils/date.js";
 import { prefersReducedMotion } from "../utils/dom.js";
 
 /**
@@ -47,6 +48,7 @@ export function createApplicationForm({ form, title, submitButton, cancelButton,
   function reset() {
     editingId = null;
     form.reset();
+    field("date").value = todayIso();
     clearErrors();
     setMode(false);
   }
@@ -77,7 +79,7 @@ export function createApplicationForm({ form, title, submitButton, cancelButton,
   });
 
   cancelButton.addEventListener("click", reset);
-  setMode(false);
+  reset();
 
   return { edit, reset, getEditingId: () => editingId };
 }

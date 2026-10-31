@@ -5,7 +5,6 @@ import {
   validateValues,
 } from "../model/application.js";
 import { createFilters } from "../model/filters.js";
-import { assignRanks, moveInOrder, nextRank, sortApplications } from "../model/ranking.js";
 import { normalizeName } from "../utils/text.js";
 
 /**
@@ -64,49 +63,15 @@ export function createStore({ storage, now = () => new Date().toISOString(), onS
           },
         };
       }
-      const previousRank = current?.rank ?? null;
-      clean.rank ??= nextRank(apps, id);
-
-      const targetApplication = id
-        ? { ...current, ...clean, updatedAt: t }
-        : createApplication(clean, t);
-      const target = id
-        ? apps.map((a) => (a.id === id ? targetApplication : a))
-        : [...apps, targetApplication];
-      const next = target.map((app) => {
-        if (app.id === targetApplication.id) return app;
-
-        let rank = app.rank;
-        if (!id && Number.isFinite(rank) && rank >= clean.rank) {
-          rank += 1;
-        } else if (id && Number.isFinite(previousRank) && Number.isFinite(rank)) {
-          if (clean.rank < previousRank && rank >= clean.rank && rank < previousRank) {
-            rank += 1;
-          } else if (clean.rank > previousRank && rank > previousRank && rank <= clean.rank) {
-            rank -= 1;
-          }
-        } else if (id && !Number.isFinite(previousRank) && Number.isFinite(rank) && rank >= clean.rank) {
-          rank += 1;
-        }
-
-        return rank === app.rank ? app : { ...app, rank, updatedAt: t };
-      });
+      const next = id
+        ? apps.map((a) => (a.id === id ? { ...current, ...clean, updatedAt: t } : a))
+        : [...apps, createApplication(clean, t)];
       const saved = commit({ applications: next }, { persist: true });
       return { ok: true, persisted: saved.ok };
     },
 
     remove(id) {
       commit({ applications: state.applications.filter((a) => a.id !== id) }, { persist: true });
-    },
-
-    /** Moves an application next to another one and renumbers. Returns the new rank, or null if unchanged. */
-    move(id, targetId, after) {
-      const ids = sortApplications(state.applications).map((a) => a.id);
-      const order = moveInOrder(ids, id, targetId, after);
-      if (!order) return null;
-      const next = assignRanks(state.applications, order, now());
-      commit({ applications: next }, { persist: true });
-      return next.find((a) => a.id === id).rank;
     },
 
     /**
@@ -129,7 +94,6 @@ export function createStore({ storage, now = () => new Date().toISOString(), onS
             ...fields,
             id: base.id,
             createdAt: base.createdAt,
-            rank: row.rank ?? base.rank,
             updatedAt: t,
           };
           if (updates.has(existing.id) || state.applications.some((app) => app.id === existing.id)) {
@@ -147,13 +111,7 @@ export function createStore({ storage, now = () => new Date().toISOString(), onS
         ...imported.values(),
         ...separate,
       ];
-      const keepTimestamp = new Set([
-        ...updates.keys(),
-        ...imported.keys(),
-        ...separate.map((app) => app.id),
-      ]);
-      const ranked = assignRanks(merged, sortApplications(merged).map((a) => a.id), t, keepTimestamp);
-      const saved = commit({ applications: ranked }, { persist: true });
+      const saved = commit({ applications: merged }, { persist: true });
 
       const touched = [...imported.values(), ...separate, ...updates.values()];
       return {

@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
+import ExcelJS from "exceljs";
 import { isIncomplete, validateValues } from "../js/model/application.js";
 import { createFilters, matchesFilters } from "../js/model/filters.js";
 import { planImport } from "../js/model/importPlan.js";
-import { sortApplications, tierFor } from "../js/model/ranking.js";
-import { getDashboardMetrics } from "../js/components/dashboard.js";
+import { sortApplications } from "../js/model/sorting.js";
+import { getDashboardMetrics, nextMilestone } from "../js/components/dashboard.js";
+import { exportWorkbook, ExcelError, importWorkbook } from "../js/services/excel.js";
 import { createStorage } from "../js/services/storage.js";
 import { createStore } from "../js/state/store.js";
 
@@ -26,17 +29,28 @@ function createTestStore() {
   });
 }
 
-test("legacy LocalStorage records are normalized and retain old contact data", () => {
+const blank = {
+  date: "", company: "", city: "", contactPerson: "", title: "", email: "", phone: "", method: "",
+  status: "", responseReceived: "", interview: "", offered: "", comment: "", nextStep: "",
+  followUpDate: "", notes: "",
+};
+
+test("legacy ranked records are normalized into the söklogg model", () => {
   const backend = memoryBackend({
-    applications: JSON.stringify([{ id: "legacy-id", rank: "", company: "IKEA", contact: "Anna" }]),
+    applications: JSON.stringify([
+      { id: "legacy-id", rank: 3, company: "IKEA", contact: "Anna", motivation: "Bra match", notes: "Länk" },
+    ]),
   });
   const { items, problem } = createStorage("applications", backend).load();
   assert.equal(problem, undefined);
   assert.equal(items[0].contactPerson, "Anna");
+  assert.equal(items[0].comment, "Bra match");
+  assert.equal(items[0].notes, "Länk");
+  assert.equal(items[0].date, "");
+  assert.equal("rank" in items[0], false);
   assert.match(items[0].id, /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i);
-  assert.equal(items[0].rank, null);
   assert.ok(items[0].createdAt);
-  assert.equal(JSON.parse(backend.getItem("applications"))[0].contactPerson, "Anna");
+  assert.equal(JSON.parse(backend.getItem("applications"))[0].comment, "Bra match");
 });
 
 test("corrupt storage is backed up and storage failures are reported", () => {
@@ -50,61 +64,51 @@ test("corrupt storage is backed up and storage failures are reported", () => {
   assert.equal(createStorage("apps", null).load().problem, "unavailable");
 });
 
-test("only company is required; other fields remain optional but validated when provided", () => {
+test("only company is required; dates, status, Ja/Nej and email are validated when provided", () => {
   assert.equal(Object.keys(validateValues({ company: "IKEA" })).length, 0);
   assert.ok(validateValues({ company: "" }).company);
   assert.ok(validateValues({ company: "IKEA", email: "not-an-email" }).email);
-  assert.ok(validateValues({ company: "IKEA", rank: "2.5" }).rank);
-  assert.equal(isIncomplete({ company: "IKEA", rank: 1, city: "", contactPerson: "", email: "", phone: "" }), true);
+  assert.ok(validateValues({ company: "IKEA", date: "2026-02-30" }).date);
+  assert.ok(validateValues({ company: "IKEA", followUpDate: "20/10/2026" }).followUpDate);
+  assert.ok(validateValues({ company: "IKEA", status: "Okänd" }).status);
+  assert.ok(validateValues({ company: "IKEA", interview: "Kanske" }).interview);
+  assert.equal(
+    Object.keys(
+      validateValues({ company: "IKEA", date: "2026-10-20", status: "Avslag", interview: "Nej" }),
+    ).length,
+    0,
+  );
+  assert.equal(isIncomplete({ company: "IKEA", date: "" }), true);
+  assert.equal(isIncomplete({ company: "IKEA", date: "2026-10-20" }), false);
 });
 
-test("store creates, edits, reorders and removes applications with timestamps", () => {
+test("applications sort by date, newest first, with undated entries last", () => {
+  const apps = [
+    { company: "B", date: "2026-10-20" },
+    { company: "Ö", date: "" },
+    { company: "A", date: "2026-10-20" },
+    { company: "C", date: "2026-11-02" },
+  ];
+  assert.deepEqual(sortApplications(apps).map((app) => app.company), ["C", "A", "B", "Ö"]);
+});
+
+test("store creates, edits and removes applications with timestamps", () => {
   const store = createTestStore();
   store.load();
   for (const company of ["IKEA", "Volvo", "Saab"]) {
     assert.equal(store.saveApplication({ company }).ok, true);
   }
-  let apps = sortApplications(store.getState().applications);
-  assert.deepEqual(apps.map(({ company, rank }) => [company, rank]), [["IKEA", 1], ["Volvo", 2], ["Saab", 3]]);
-  const editedId = apps[0].id;
-  const created = apps[0].createdAt;
+  const [first] = store.getState().applications;
+  const created = first.createdAt;
 
-  assert.equal(store.saveApplication({ company: "IKEA AB", rank: "" }, editedId).ok, true);
-  apps = sortApplications(store.getState().applications);
-  assert.equal(apps.find((app) => app.id === editedId).createdAt, created);
-  assert.equal(store.getState().applications.find((app) => app.id === editedId).rank, 4);
+  assert.equal(store.saveApplication({ company: "IKEA AB", status: "Avslag" }, first.id).ok, true);
+  const edited = store.getState().applications.find((app) => app.id === first.id);
+  assert.equal(edited.createdAt, created);
+  assert.equal(edited.status, "Avslag");
+  assert.notEqual(edited.updatedAt, created);
 
-  const ids = sortApplications(store.getState().applications).map((app) => app.id);
-  assert.equal(store.move(ids[2], ids[0], false), 1);
-  assert.deepEqual(sortApplications(store.getState().applications).map((app) => app.rank), [1, 2, 3]);
-  store.remove(ids[0]);
+  store.remove(first.id);
   assert.equal(store.getState().applications.length, 2);
-});
-
-test("setting a rank moves other applications without creating duplicate ranks", () => {
-  const store = createTestStore();
-  store.load();
-  for (const company of ["IKEA", "Volvo", "Saab"]) store.saveApplication({ company });
-
-  assert.equal(store.saveApplication({ company: "Nytt företag", rank: "2" }).ok, true);
-  let apps = sortApplications(store.getState().applications);
-  assert.deepEqual(apps.map(({ company, rank }) => [company, rank]), [
-    ["IKEA", 1],
-    ["Nytt företag", 2],
-    ["Volvo", 3],
-    ["Saab", 4],
-  ]);
-  assert.equal(new Set(apps.map(({ rank }) => rank)).size, apps.length);
-
-  assert.equal(store.saveApplication({ company: "Saab", rank: "1" }, apps[3].id).ok, true);
-  apps = sortApplications(store.getState().applications);
-  assert.deepEqual(apps.map(({ company, rank }) => [company, rank]), [
-    ["Saab", 1],
-    ["IKEA", 2],
-    ["Nytt företag", 3],
-    ["Volvo", 4],
-  ]);
-  assert.equal(new Set(apps.map(({ rank }) => rank)).size, apps.length);
 });
 
 test("company matching ignores case and whitespace; selected Excel conflicts preserve identity", () => {
@@ -115,7 +119,7 @@ test("company matching ignores case and whitespace; selected Excel conflicts pre
   const imported = [
     { ...existing, id: "new-id", company: " ikea ", city: "Stockholm", createdAt: "excel-created", updatedAt: "excel-updated" },
     { ...existing, id: "identical-id", createdAt: "excel-created", updatedAt: "excel-updated" },
-    { id: "fresh-id", rank: null, company: "Volvo", city: "", contactPerson: "", email: "", phone: "", motivation: "", notes: "", createdAt: "new", updatedAt: "new" },
+    { ...blank, id: "fresh-id", company: "Volvo", createdAt: "new", updatedAt: "new" },
   ];
   const { fresh, conflicts, unchanged } = planImport(store.getState().applications, imported);
   assert.equal(fresh.length, 1);
@@ -130,17 +134,7 @@ test("company matching ignores case and whitespace; selected Excel conflicts pre
 });
 
 test("import planning groups duplicate company rows and treats exact rows as unchanged", () => {
-  const first = {
-    id: "first-id",
-    rank: 1,
-    company: "Acme",
-    city: "Stockholm",
-    contactPerson: "",
-    email: "",
-    phone: "",
-    motivation: "",
-    notes: "",
-  };
+  const first = { ...blank, id: "first-id", company: "Acme", city: "Stockholm" };
   const second = { ...first, id: "second-id", city: "Göteborg" };
   const { fresh, conflicts, unchanged } = planImport([], [
     first,
@@ -179,85 +173,150 @@ test("import can create a separately named entry instead of updating an existing
   assert.equal(result.added, 1);
   assert.equal(result.updated, 0);
   assert.deepEqual(
-    sortApplications(store.getState().applications).map(({ company, city }) => [company, city]),
+    store.getState().applications.map(({ company, city }) => [company, city]),
     [["Acme", "Stockholm"], ["Acme - Göteborg", "Göteborg"]],
   );
 });
 
-test("filters combine with AND and rank colors honor the 50-application threshold", () => {
+test("filters combine with AND and follow-up filters compare against today", () => {
+  const today = "2026-11-01";
   const filters = createFilters();
-  filters.email = "missing";
-  filters.phone = "has";
-  assert.equal(matchesFilters({ email: "", phone: "123" }, filters), true);
-  assert.equal(matchesFilters({ email: "a@b.se", phone: "123" }, filters), false);
-  assert.equal(matchesFilters({ email: "", phone: "" }, filters), false);
-  assert.equal(tierFor(1, 49), "gold");
-  assert.equal(tierFor(2, 49), "silver");
-  assert.equal(tierFor(3, 49), "bronze");
-  assert.equal(tierFor(4, 49), null);
-  assert.equal(tierFor(5, 50), "premium");
-  assert.equal(tierFor(6, 50), null);
+  filters.status = "Ansökan skickad";
+  filters.interview = "Nej";
+  const app = { company: "IKEA", status: "Ansökan skickad", interview: "Nej", offered: "", followUpDate: "" };
+  assert.equal(matchesFilters(app, filters, today), true);
+  assert.equal(matchesFilters({ ...app, interview: "Ja" }, filters, today), false);
+  assert.equal(matchesFilters({ ...app, status: "Avslag" }, filters, today), false);
+
+  const followUp = createFilters();
+  followUp.followUp = "overdue";
+  assert.equal(matchesFilters({ ...app, followUpDate: "2026-10-31" }, followUp, today), true);
+  assert.equal(matchesFilters({ ...app, followUpDate: "2026-11-01" }, followUp, today), false);
+  assert.equal(matchesFilters(app, followUp, today), false);
+  followUp.followUp = "upcoming";
+  assert.equal(matchesFilters({ ...app, followUpDate: "2026-11-01" }, followUp, today), true);
+  assert.equal(matchesFilters(app, followUp, today), false);
 });
 
-test("company filter matches case-insensitive substrings and combines with other filters", () => {
+test("company filter matches case-insensitive substrings", () => {
   const filters = createFilters();
   filters.company = "kea";
-  assert.equal(matchesFilters({ company: "IKEA", email: "", phone: "" }, filters), true);
-  assert.equal(matchesFilters({ company: "IKEA Sverige", email: "", phone: "" }, filters), true);
-  assert.equal(matchesFilters({ company: "Acme", email: "", phone: "" }, filters), false);
-
-  filters.email = "has";
-  assert.equal(matchesFilters({ company: "IKEA", email: "info@ikea.se" }, filters), true);
-  assert.equal(matchesFilters({ company: "IKEA", email: "" }, filters), false);
+  assert.equal(matchesFilters({ company: "IKEA" }, filters), true);
+  assert.equal(matchesFilters({ company: "IKEA Sverige" }, filters), true);
+  assert.equal(matchesFilters({ company: "Acme" }, filters), false);
 });
 
-test("dashboard grades company, named-contact and top-list goals", () => {
-  const applications = Array.from({ length: 50 }, (_, index) => ({
-    id: `id-${index}`,
-    rank: index + 1,
-    company: `Företag ${index + 1}`,
-    contactPerson:
-      index < 30 ? (index === 0 ? "info@example.se" : `Person ${index}`) : "",
-    email: index === 1 ? "info@example.se" : "",
-    motivation: index < 5 ? "Presentation och motivering" : "",
+test("dashboard reproduces the Min status counts and milestone goals", () => {
+  const apps = Array.from({ length: 20 }, (_, i) => ({
+    ...blank,
+    company: `Företag ${i}`,
+    followUpDate: i < 3 ? "2026-12-01" : "",
+    interview: i === 0 ? "Ja" : "Nej",
+    offered: i === 1 ? "Ja" : "",
+    status: i === 2 ? "Kontakt etablerad" : "Ansökan skickad",
   }));
-  const vg = getDashboardMetrics(applications);
-  assert.deepEqual(vg, {
-    companies: { value: 50, target: 50, grade: "distinction" },
-    contacts: { value: 29, target: 30, grade: "pass" },
-    top: { topThree: 3, topFive: 5, value: 5, target: 5, grade: "distinction" },
+  assert.deepEqual(getDashboardMetrics(apps), {
+    companies: { value: 20, target: 20, grade: "distinction" },
+    followUps: { value: 3, target: 3, grade: "distinction" },
+    dialogue: { value: 2, target: 1, grade: "distinction" },
+    interviews: { value: 1, target: 1, grade: "distinction" },
+    offers: { value: 1, target: 1, grade: "distinction" },
   });
 
-  const pass = getDashboardMetrics(applications.slice(0, 30).map((app, index) => ({
-    ...app,
-    contactPerson: index < 15 ? `Person ${index}` : "",
-    motivation: index < 3 ? "Presentation och motivering" : "",
-  })));
-  assert.deepEqual(pass, {
-    companies: { value: 30, target: 50, grade: "pass" },
-    contacts: { value: 15, target: 30, grade: "pass" },
-    top: { topThree: 3, topFive: 3, value: 3, target: 5, grade: "pass" },
-  });
-
-  const below = getDashboardMetrics(applications.slice(0, 29).map((app) => ({
-    ...app,
-    contactPerson: "",
-    motivation: "",
-  })));
-  assert.deepEqual(below, {
-    companies: { value: 29, target: 30, grade: "below" },
-    contacts: { value: 0, target: 15, grade: "below" },
-    top: { topThree: 0, topFive: 0, value: 0, target: 3, grade: "below" },
-  });
+  const few = getDashboardMetrics([{ ...blank, company: "A" }, { ...blank, company: "" }]);
+  assert.deepEqual(few.companies, { value: 1, target: 10, grade: "below" });
+  assert.deepEqual(few.dialogue, { value: 0, target: 1, grade: "below" });
+  assert.equal(getDashboardMetrics(apps.slice(0, 10)).companies.grade, "pass");
 });
 
-test("store supports at least 250 records and keeps their order ranks unique", () => {
+test("next milestone is the first deadline that is today or later", () => {
+  assert.deepEqual(nextMilestone("2026-10-31"), {
+    date: "2026-12-31",
+    name: "Minst 10 företag kontaktade",
+    daysLeft: 61,
+  });
+  assert.equal(nextMilestone("2026-12-31").daysLeft, 0);
+  assert.equal(nextMilestone("2027-12-01"), null);
+});
+
+test("store supports at least 250 records", () => {
   const store = createTestStore();
   store.load();
   for (let i = 0; i < 250; i++) store.saveApplication({ company: `Företag ${i}` });
-  const apps = sortApplications(store.getState().applications);
-  assert.equal(apps.length, 250);
-  assert.deepEqual(apps.map((app) => app.rank), Array.from({ length: 250 }, (_, i) => i + 1));
-  assert.equal(store.move(apps[249].id, apps[0].id, false), 1);
-  assert.equal(sortApplications(store.getState().applications)[0].company, "Företag 249");
+  assert.equal(store.getState().applications.length, 250);
+});
+
+const templateData = async () => {
+  const buffer = await readFile(new URL("../assets/lia-soklogg-mall.xlsx", import.meta.url));
+  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+};
+
+async function asFile(blob) {
+  return { size: blob.size, arrayBuffer: () => blob.arrayBuffer() };
+}
+
+test("export makes a full copy of the template and the result imports back unchanged", async () => {
+  const store = createTestStore();
+  store.load();
+  store.saveApplication({
+    date: "2026-10-20", company: "itm8", city: "malmö, hbg, gbg", contactPerson: "Emma Humble",
+    title: "Talent Acquisition Partner", email: "emhum@itm8.com", phone: "070 123 45 67",
+    method: "formulär", status: "Ansökan skickad", responseReceived: "Nej", interview: "Nej",
+    offered: "Nej", comment: "Skickade CV", nextStep: "Följ upp", followUpDate: "2026-11-03",
+    notes: "https://join.itm8.se/people/1",
+  });
+  store.saveApplication({ date: "2026-10-21", company: "Handelsbanken", status: "Intervju bokad", interview: "Ja" });
+
+  const blob = await exportWorkbook(store.getState().applications, { ExcelJS, templateData: await templateData() });
+  const book = new ExcelJS.Workbook();
+  await book.xlsx.load(await blob.arrayBuffer());
+  assert.deepEqual(book.worksheets.map((sheet) => sheet.name), ["Instruktioner", "Söklogg", "Min status", "Listor"]);
+
+  const sheet = book.getWorksheet("Söklogg");
+  assert.equal(sheet.getCell("B2").value, "Handelsbanken");
+  assert.equal(sheet.getCell("A3").value.toISOString().slice(0, 10), "2026-10-20");
+  assert.equal(sheet.getCell("A3").numFmt, "yyyy-mm-dd");
+  assert.equal(sheet.getCell("I3").dataValidation.formulae[0], "Listor!$A$1:$A$6");
+  assert.equal(sheet.getCell("K200").dataValidation.formulae[0], "Listor!$B$1:$B$2");
+  assert.equal(book.getWorksheet("Min status").getCell("B3").value.formula, "COUNTA(Söklogg!B2:B201)");
+  assert.equal(book.getWorksheet("Listor").getCell("A6").value, "LIA-plats klar");
+  assert.equal(book.getWorksheet("Instruktioner").getCell("A1").value, "LIA-söklogg för studerande");
+
+  const imported = await importWorkbook(await asFile(blob), "now", { ExcelJS });
+  const original = store.getState().applications;
+  assert.equal(imported.length, 2);
+  const { unchanged, fresh, conflicts } = planImport(original, imported);
+  assert.deepEqual([unchanged.length, fresh.length, conflicts.length], [2, 0, 0]);
+});
+
+test("export formulas cover more rows than the template holds", async () => {
+  const apps = Array.from({ length: 250 }, (_, i) => ({ ...blank, id: `id-${i}`, company: `Företag ${i}` }));
+  const blob = await exportWorkbook(apps, { ExcelJS, templateData: await templateData() });
+  const book = new ExcelJS.Workbook();
+  await book.xlsx.load(await blob.arrayBuffer());
+  assert.equal(book.getWorksheet("Min status").getCell("B3").value.formula, "COUNTA(Söklogg!B2:B251)");
+  assert.equal(book.getWorksheet("Söklogg").getCell("B251").value, "Företag 99");
+});
+
+test("import rejects other workbooks and invalid values with clear messages", async () => {
+  const other = new ExcelJS.Workbook();
+  other.addWorksheet("Blad1").addRow(["a", "b"]);
+  await assert.rejects(
+    importWorkbook(await asFile(new Blob([await other.xlsx.writeBuffer()])), "now", { ExcelJS }),
+    (error) => error instanceof ExcelError && /Söklogg/.test(error.message),
+  );
+
+  const book = new ExcelJS.Workbook();
+  await book.xlsx.load(await templateData());
+  const sheet = book.getWorksheet("Söklogg");
+  sheet.getRow(2).values = ["2026-10-20", "Acme", "", "", "", "", "", "", "Okänd status"];
+  sheet.getRow(3).values = ["2026-13-45", "Beta", "", "", "", "", "", "", "Avslag"];
+  const blob = new Blob([await book.xlsx.writeBuffer()]);
+  await assert.rejects(importWorkbook(await asFile(blob), "now", { ExcelJS }), (error) => {
+    assert.ok(error instanceof ExcelError);
+    assert.equal(error.details.length, 2);
+    assert.match(error.details[0], /Rad 2/);
+    assert.match(error.details[1], /Rad 3/);
+    return true;
+  });
 });

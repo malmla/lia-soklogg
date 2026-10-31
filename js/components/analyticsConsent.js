@@ -7,14 +7,21 @@ const TRACKED_FEATURES = new Set([
   "application_edit",
   "application_delete",
   "filter_reset",
-  "reorder",
   "theme_toggle",
 ]);
-const FILTER_FIELDS = new Set(["company", "contactPerson", "email", "phone"]);
+const FILTER_FIELDS = new Set(["company", "status", "interview", "offered", "followUp"]);
 const FILTER_MODES = new Map([
   ["", "all"],
-  ["has", "has"],
-  ["missing", "missing"],
+  ["Ja", "yes"],
+  ["Nej", "no"],
+  ["overdue", "overdue"],
+  ["upcoming", "upcoming"],
+  ["Ej kontaktat", "not_contacted"],
+  ["Ansökan skickad", "application_sent"],
+  ["Kontakt etablerad", "contact_established"],
+  ["Intervju bokad", "interview_booked"],
+  ["Avslag", "rejected"],
+  ["LIA-plats klar", "placement_secured"],
 ]);
 
 function readConsent(onError) {

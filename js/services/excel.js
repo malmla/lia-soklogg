@@ -1,25 +1,46 @@
-import { cleanValues, createApplication, FIELDS, validateValues } from "../model/application.js";
-import { sortApplications } from "../model/ranking.js";
+import {
+  canonicalOption,
+  cleanValues,
+  createApplication,
+  DATE_FIELDS,
+  FIELDS,
+  isIsoDate,
+  STATUSES,
+  validateValues,
+  YES_NO,
+  YES_NO_FIELDS,
+} from "../model/application.js";
+import { sortApplications } from "../model/sorting.js";
 
-// Loaded on demand so the app starts fast and no global `XLSX` is created.
-const SHEETJS_URL = "https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs";
+// Loaded on demand so the app starts fast.
+const EXCELJS_URL = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
+const TEMPLATE_URL = new URL("../../assets/lia-soklogg-mall.xlsx", import.meta.url);
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-export const MOTIVATION_HEADER = "Kort presentation av företaget samt motivering till topp 1-3 / 1-5";
+export const SHEET_NAME = "Söklogg";
+const TEMPLATE_ROWS = 201;
 
 export const COLUMNS = {
-  rank: "Rangordning",
+  date: "Datum",
   company: "Företag",
   city: "Ort",
   contactPerson: "Kontaktperson",
+  title: "Titel",
   email: "E-post",
-  phone: "Telefonnummer",
-  motivation: MOTIVATION_HEADER,
-  notes: "Anteckningar",
+  phone: "Telefon",
+  method: "Hur kontaktades företaget?",
+  status: "Status",
+  responseReceived: "Svar mottaget",
+  interview: "Intervju",
+  offered: "LIA-plats erbjuden",
+  comment: "Kommentar",
+  nextStep: "Nästa steg",
+  followUpDate: "Uppföljningsdatum",
+  notes: "Notes",
 };
 
-const OPTIONAL_COLUMNS = new Set(["notes"]);
+const REQUIRED_COLUMNS = new Set(["date", "company", "status"]);
 const MAX_LISTED_ERRORS = 10;
 
 export class ExcelError extends Error {
@@ -30,57 +51,90 @@ export class ExcelError extends Error {
   }
 }
 
-let sheetjs = null;
+let excelJs = null;
 
-function loadSheetJs() {
-  sheetjs ??= import(/* @vite-ignore */ SHEETJS_URL).catch(() => {
-    sheetjs = null;
+function loadExcelJs() {
+  if (globalThis.ExcelJS) return Promise.resolve(globalThis.ExcelJS);
+  excelJs ??= new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = EXCELJS_URL;
+    script.onload = () => resolve(globalThis.ExcelJS);
+    script.onerror = () => reject(new Error("ExcelJS could not be loaded."));
+    document.head.append(script);
+  }).catch(() => {
+    excelJs = null;
     throw new ExcelError("Excel-biblioteket kunde inte laddas. Kontrollera din internetanslutning.");
   });
-  return sheetjs;
+  return excelJs;
 }
 
-/** Parses an .xlsx/.xls file into application records. Throws ExcelError with user-friendly messages. */
-export async function importWorkbook(file, now = new Date().toISOString()) {
-  if (file.size > MAX_FILE_BYTES) throw new ExcelError("Filen är för stor (max 5 MB).");
-  const XLSX = await loadSheetJs();
+const isoDate = (date) => date.toISOString().slice(0, 10);
 
-  let rows;
-  try {
-    const book = XLSX.read(await file.arrayBuffer(), { type: "array" });
-    const sheet = book.Sheets[book.SheetNames[0]];
-    if (!sheet) throw new ExcelError("Filen innehåller inget kalkylblad.");
-    rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false, blankrows: true });
-  } catch (error) {
-    if (error instanceof ExcelError) throw error;
-    throw new ExcelError("Felaktig filstruktur: filen kunde inte läsas som en Excel-fil.");
+/** Reads a cell value as plain text, unwrapping formulas, rich text and hyperlinks. */
+function cellText(value) {
+  if (value === null || value === undefined) return "";
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? "" : isoDate(value);
+  if (typeof value === "object") {
+    if ("error" in value) return "";
+    if ("result" in value) return cellText(value.result);
+    if (Array.isArray(value.richText)) return value.richText.map((part) => part.text).join("").trim();
+    if ("text" in value) return cellText(value.text);
+    return "";
   }
+  return String(value).trim();
+}
 
-  const headers = (rows[0] ?? []).map((h) => String(h).trim());
+/** Parses an .xlsx söklogg into application records. Throws ExcelError with user-friendly messages. */
+export async function importWorkbook(file, now = new Date().toISOString(), { ExcelJS } = {}) {
+  if (file.size > MAX_FILE_BYTES) throw new ExcelError("Filen är för stor (max 5 MB).");
+  ExcelJS ??= await loadExcelJs();
+
+  let sheet;
+  try {
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load(await file.arrayBuffer());
+    sheet = book.getWorksheet(SHEET_NAME);
+  } catch {
+    throw new ExcelError("Felaktig filstruktur: filen kunde inte läsas som en .xlsx-fil.");
+  }
+  if (!sheet) throw new ExcelError(`Felaktig filstruktur. Fliken "${SHEET_NAME}" saknas.`);
+
+  const headerRow = sheet.getRow(1);
   const columnIndex = {};
   const missing = [];
   for (const [field, header] of Object.entries(COLUMNS)) {
-    const index = headers.indexOf(header);
-    if (index >= 0) columnIndex[field] = index;
-    else if (!OPTIONAL_COLUMNS.has(field)) missing.push(header);
+    let index = 0;
+    for (let i = 1; i <= sheet.columnCount && !index; i++) {
+      if (cellText(headerRow.getCell(i).value) === header) index = i;
+    }
+    if (index) columnIndex[field] = index;
+    else if (REQUIRED_COLUMNS.has(field)) missing.push(header);
   }
   if (missing.length) throw new ExcelError(`Felaktig filstruktur. Kolumner saknas: ${missing.join(", ")}.`);
 
   const imported = [];
   const errors = [];
-  rows.slice(1).forEach((cells, i) => {
+  for (let line = 2; line <= sheet.rowCount; line++) {
+    const row = sheet.getRow(line);
     const values = {};
-    for (const field of FIELDS) values[field] = String(cells[columnIndex[field]] ?? "").trim();
+    for (const field of FIELDS) {
+      values[field] = columnIndex[field] ? cellText(row.getCell(columnIndex[field]).value) : "";
+    }
+    if (!FIELDS.some((field) => values[field])) continue;
 
-    // A row holding nothing but a rank counts as empty
-    if (!FIELDS.some((f) => f !== "rank" && values[f])) return;
+    for (const field of YES_NO_FIELDS) values[field] = canonicalOption(values[field], YES_NO) ?? values[field];
+    values.status = canonicalOption(values.status, STATUSES) ?? values.status;
+    for (const field of DATE_FIELDS) {
+      // Tolerate a time part, as in "2026-10-20 00:00:00"
+      const day = values[field].slice(0, 10);
+      if (isIsoDate(day)) values[field] = day;
+    }
 
-    const line = i + 2;
     for (const message of Object.values(validateValues(values, { requireCompany: false }))) {
       errors.push(`Rad ${line}: ${message}`);
     }
     imported.push(createApplication(values, now));
-  });
+  }
 
   if (errors.length) {
     const details = errors.slice(0, MAX_LISTED_ERRORS);
@@ -91,17 +145,68 @@ export async function importWorkbook(file, now = new Date().toISOString()) {
   return imported;
 }
 
-/** Builds an .xlsx file with the same eight columns the importer expects. */
-export async function exportWorkbook(applications) {
-  const XLSX = await loadSheetJs();
-  const rows = sortApplications(applications).map((app) => {
-    const clean = cleanValues(app);
-    return Object.fromEntries(Object.entries(COLUMNS).map(([field, header]) => [header, clean[field] ?? ""]));
+async function loadTemplate() {
+  try {
+    const response = await fetch(TEMPLATE_URL);
+    if (!response.ok) throw new Error(`Template returned ${response.status}.`);
+    return await response.arrayBuffer();
+  } catch {
+    throw new ExcelError("Excel-mallen kunde inte hämtas. Försök igen.");
+  }
+}
+
+/**
+ * Builds a full copy of the söklogg template (all four sheets) with the applications written to the
+ * Söklogg sheet, the dropdown lists restored and the Min status formulas covering every row.
+ */
+export async function exportWorkbook(applications, { ExcelJS, templateData } = {}) {
+  ExcelJS ??= await loadExcelJs();
+  const book = new ExcelJS.Workbook();
+  await book.xlsx.load(templateData ?? (await loadTemplate()));
+  const sheet = book.getWorksheet(SHEET_NAME);
+  if (!sheet) throw new ExcelError(`Excel-mallen saknar fliken "${SHEET_NAME}".`);
+
+  const column = {};
+  for (const [field, header] of Object.entries(COLUMNS)) {
+    for (let i = 1; i <= sheet.columnCount && !column[field]; i++) {
+      if (cellText(sheet.getRow(1).getCell(i).value) === header) column[field] = i;
+    }
+  }
+
+  const rows = sortApplications(applications).map(cleanValues);
+  const lastRow = Math.max(TEMPLATE_ROWS, rows.length + 1);
+
+  rows.forEach((values, i) => {
+    const row = sheet.getRow(i + 2);
+    for (const field of FIELDS) {
+      const cell = row.getCell(column[field]);
+      if (DATE_FIELDS.includes(field)) {
+        cell.value = values[field] ? new Date(`${values[field]}T00:00:00Z`) : null;
+        cell.numFmt = "yyyy-mm-dd";
+      } else {
+        cell.value = values[field] || null;
+      }
+    }
+    row.commit();
   });
-  const sheet = XLSX.utils.json_to_sheet(rows, { header: Object.values(COLUMNS) });
-  sheet["!cols"] = [10, 25, 18, 22, 28, 18, 45, 45].map((wch) => ({ wch }));
-  const book = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(book, sheet, "Ansökningar");
-  const data = XLSX.write(book, { bookType: "xlsx", type: "array" });
-  return new Blob([data], { type: XLSX_MIME });
+
+  const statusColumn = sheet.getColumn(column.status).letter;
+  const listValidation = (range) => ({ type: "list", allowBlank: true, formulae: [range] });
+  for (let r = 2; r <= lastRow; r++) {
+    sheet.getCell(`${statusColumn}${r}`).dataValidation = listValidation("Listor!$A$1:$A$6");
+    for (let c = column.responseReceived; c <= column.offered; c++) {
+      sheet.getCell(r, c).dataValidation = listValidation("Listor!$B$1:$B$2");
+    }
+  }
+
+  const summary = book.getWorksheet("Min status");
+  const col = (field) => sheet.getColumn(column[field]).letter;
+  if (summary) {
+    summary.getCell("B3").value = { formula: `COUNTA(${SHEET_NAME}!${col("company")}2:${col("company")}${lastRow})` };
+    summary.getCell("B4").value = { formula: `COUNTIF(${SHEET_NAME}!${col("interview")}2:${col("interview")}${lastRow},"Ja")` };
+    summary.getCell("B5").value = { formula: `COUNTIF(${SHEET_NAME}!${col("offered")}2:${col("offered")}${lastRow},"Ja")` };
+  }
+
+  book.calcProperties.fullCalcOnLoad = true;
+  return new Blob([await book.xlsx.writeBuffer()], { type: XLSX_MIME });
 }

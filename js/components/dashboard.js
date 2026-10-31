@@ -1,62 +1,66 @@
-import { sortApplications } from "../model/ranking.js";
-import { isFilled, isValidEmail } from "../utils/text.js";
-
-function grade(value, pass, distinction) {
-  if (value >= distinction) return "distinction";
-  if (value >= pass) return "pass";
-  return "below";
-}
+import { ACTIVE_DIALOGUE_STATUSES, MILESTONES } from "../model/milestones.js";
+import { daysBetween, todayIso } from "../utils/date.js";
+import { isFilled } from "../utils/text.js";
 
 const GRADE_LABELS = {
-  below: "Under godkänt",
-  pass: "Godkänt",
-  distinction: "Väl godkänt",
+  below: "Pågår",
+  pass: "Delmål nått",
+  distinction: "Mål nått",
 };
 
+const count = (apps, predicate) => apps.filter(predicate).length;
+
+function single(value, target) {
+  return { value, target, grade: value >= target ? "distinction" : "below" };
+}
+
+/** The Min status figures plus progress against the milestones in the template's instructions. */
 export function getDashboardMetrics(applications) {
-  const contacts = applications.filter(
-    (app) => isFilled(app.contactPerson) && !isValidEmail(String(app.contactPerson).trim()),
-  ).length;
-  const ranked = sortApplications(applications);
-  const topThree = ranked.slice(0, 3).filter((app) => isFilled(app.motivation)).length;
-  const topFive = ranked.slice(0, 5).filter((app) => isFilled(app.motivation)).length;
+  const companies = count(applications, (app) => isFilled(app.company));
 
   return {
     companies: {
-      value: applications.length,
-      target: applications.length < 30 ? 30 : 50,
-      grade: grade(applications.length, 30, 50),
+      value: companies,
+      target: companies < 10 ? 10 : 20,
+      grade: companies >= 20 ? "distinction" : companies >= 10 ? "pass" : "below",
     },
-    contacts: {
-      value: contacts,
-      target: contacts < 15 ? 15 : 30,
-      grade: grade(contacts, 15, 30),
-    },
-    top: {
-      topThree,
-      topFive,
-      value: topThree < 3 ? topThree : topFive,
-      target: topThree < 3 ? 3 : 5,
-      grade: topFive === 5 ? "distinction" : topThree === 3 ? "pass" : "below",
-    },
+    followUps: single(count(applications, (app) => isFilled(app.followUpDate)), 3),
+    dialogue: single(
+      count(applications, (app) => app.interview === "Ja" || ACTIVE_DIALOGUE_STATUSES.includes(app.status)),
+      1,
+    ),
+    interviews: single(count(applications, (app) => app.interview === "Ja"), 1),
+    offers: single(count(applications, (app) => app.offered === "Ja"), 1),
   };
+}
+
+/** The first milestone that is today or later, with days left, or null when all have passed. */
+export function nextMilestone(today = todayIso()) {
+  const upcoming = MILESTONES.filter((m) => m.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
+  return upcoming ? { ...upcoming, daysLeft: daysBetween(today, upcoming.date) } : null;
+}
+
+function describeNext(milestone) {
+  if (!milestone) return "Alla deadlines är passerade.";
+  const when =
+    milestone.daysLeft === 0 ? "idag" : milestone.daysLeft === 1 ? "imorgon" : `om ${milestone.daysLeft} dagar`;
+  return `Nästa deadline: ${milestone.name} (${milestone.date}), ${when}.`;
 }
 
 export function createDashboard(root) {
   const nodes = new Map([...root.querySelectorAll("[data-stat]")].map((n) => [n.dataset.stat, n]));
   const cards = new Map([...root.querySelectorAll("[data-goal]")].map((n) => [n.dataset.goal, n]));
+  const nextDeadline = root.querySelector("[data-next-deadline]");
 
   return {
-    update(applications) {
+    update(applications, today = todayIso()) {
       const metrics = getDashboardMetrics(applications);
-      nodes.get("companies").textContent = `${metrics.companies.value} av ${metrics.companies.target}`;
-      nodes.get("contacts").textContent = `${metrics.contacts.value} av ${metrics.contacts.target}`;
-      nodes.get("top").textContent = `${metrics.top.value} av ${metrics.top.target}`;
-
       for (const [key, metric] of Object.entries(metrics)) {
+        nodes.get(key).textContent = `${metric.value} av ${metric.target}`;
         cards.get(key).dataset.status = metric.grade;
         nodes.get(`${key}Grade`).textContent = GRADE_LABELS[metric.grade];
       }
+      nextDeadline.textContent = describeNext(nextMilestone(today));
     },
   };
 }

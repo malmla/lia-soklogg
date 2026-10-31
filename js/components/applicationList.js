@@ -1,14 +1,11 @@
 import { createCard, cardSignature } from "./applicationCard.js";
-import { createSortable } from "./sortable.js";
 
 /**
  * Renders the list with keyed reconciliation: cards whose data did not change are reused,
  * so even a few hundred applications update quickly. All interaction uses event delegation.
  */
-export function createApplicationList(root, { emptyEl, onEdit, onDelete, onMove, announce }) {
+export function createApplicationList(root, { emptyEl, onEdit, onDelete }) {
   const cards = new Map(); // id -> { el, signature }
-
-  createSortable(root, { onMove, announce });
 
   root.addEventListener("click", (e) => {
     const button = e.target.closest("button[data-action]");
@@ -16,26 +13,8 @@ export function createApplicationList(root, { emptyEl, onEdit, onDelete, onMove,
     if (!item) return;
     const id = item.dataset.id;
 
-    switch (button.dataset.action) {
-      case "edit":
-        onEdit(id);
-        break;
-      case "delete":
-        onDelete(id);
-        break;
-      case "move-up": {
-        const prev = item.previousElementSibling;
-        if (prev) onMove(id, prev.dataset.id, false);
-        else announce("Redan först i listan.");
-        break;
-      }
-      case "move-down": {
-        const next = item.nextElementSibling;
-        if (next) onMove(id, next.dataset.id, true);
-        else announce("Redan sist i listan.");
-        break;
-      }
-    }
+    if (button.dataset.action === "edit") onEdit(id);
+    else if (button.dataset.action === "delete") onDelete(id);
   });
 
   /** Keeps keyboard focus on the same control when its card gets rebuilt or moved. */

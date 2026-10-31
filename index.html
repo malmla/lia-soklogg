@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>Branschkartläggning-tracker</title>
+    <title>LIA-söklogg</title>
     <script>
       (() => {
         try {
@@ -20,7 +20,7 @@
     <a class="skip-link" href="#main">Hoppa till innehållet</a>
 
     <header class="app-header">
-      <h1>Branschkartläggning-tracker</h1>
+      <h1>LIA-söklogg</h1>
       <p class="version-tracker" id="version-tracker" aria-live="polite">
         Senaste push: hämtas ...
       </p>
@@ -51,20 +51,17 @@
         <form id="application-form" novalidate>
           <div class="grid">
             <div class="field">
-              <label for="rank">Rangordning</label>
+              <label for="date">Datum</label>
               <input
-                type="number"
-                id="rank"
-                name="rank"
-                min="1"
-                step="1"
-                inputmode="numeric"
-                aria-describedby="rank-error"
+                type="date"
+                id="date"
+                name="date"
+                aria-describedby="date-error"
               />
               <p
                 class="field-error"
-                id="rank-error"
-                data-error-for="rank"
+                id="date-error"
+                data-error-for="date"
                 hidden
               ></p>
             </div>
@@ -120,6 +117,22 @@
               ></p>
             </div>
             <div class="field">
+              <label for="title">Titel</label>
+              <input
+                type="text"
+                id="title"
+                name="title"
+                autocomplete="organization-title"
+                aria-describedby="title-error"
+              />
+              <p
+                class="field-error"
+                id="title-error"
+                data-error-for="title"
+                hidden
+              ></p>
+            </div>
+            <div class="field">
               <label for="email">E-post</label>
               <input
                 type="email"
@@ -136,7 +149,7 @@
               ></p>
             </div>
             <div class="field">
-              <label for="phone">Telefonnummer</label>
+              <label for="phone">Telefon</label>
               <input
                 type="tel"
                 id="phone"
@@ -151,31 +164,146 @@
                 hidden
               ></p>
             </div>
+            <div class="field">
+              <label for="method">Hur kontaktades företaget?</label>
+              <input
+                type="text"
+                id="method"
+                name="method"
+                placeholder="till exempel formulär, e-post, LinkedIn"
+                aria-describedby="method-error"
+              />
+              <p
+                class="field-error"
+                id="method-error"
+                data-error-for="method"
+                hidden
+              ></p>
+            </div>
+            <div class="field">
+              <label for="status">Status</label>
+              <select id="status" name="status" aria-describedby="status-error">
+                <option value="">Välj status</option>
+                <option>Ej kontaktat</option>
+                <option>Ansökan skickad</option>
+                <option>Kontakt etablerad</option>
+                <option>Intervju bokad</option>
+                <option>Avslag</option>
+                <option>LIA-plats klar</option>
+              </select>
+              <p
+                class="field-error"
+                id="status-error"
+                data-error-for="status"
+                hidden
+              ></p>
+            </div>
+            <div class="field">
+              <label for="responseReceived">Svar mottaget</label>
+              <select
+                id="responseReceived"
+                name="responseReceived"
+                aria-describedby="responseReceived-error"
+              >
+                <option value="">Ej angivet</option>
+                <option>Ja</option>
+                <option>Nej</option>
+              </select>
+              <p
+                class="field-error"
+                id="responseReceived-error"
+                data-error-for="responseReceived"
+                hidden
+              ></p>
+            </div>
+            <div class="field">
+              <label for="interview">Intervju</label>
+              <select
+                id="interview"
+                name="interview"
+                aria-describedby="interview-error"
+              >
+                <option value="">Ej angivet</option>
+                <option>Ja</option>
+                <option>Nej</option>
+              </select>
+              <p
+                class="field-error"
+                id="interview-error"
+                data-error-for="interview"
+                hidden
+              ></p>
+            </div>
+            <div class="field">
+              <label for="offered">LIA-plats erbjuden</label>
+              <select
+                id="offered"
+                name="offered"
+                aria-describedby="offered-error"
+              >
+                <option value="">Ej angivet</option>
+                <option>Ja</option>
+                <option>Nej</option>
+              </select>
+              <p
+                class="field-error"
+                id="offered-error"
+                data-error-for="offered"
+                hidden
+              ></p>
+            </div>
+            <div class="field">
+              <label for="followUpDate">Uppföljningsdatum</label>
+              <input
+                type="date"
+                id="followUpDate"
+                name="followUpDate"
+                aria-describedby="followUpDate-error"
+              />
+              <p
+                class="field-error"
+                id="followUpDate-error"
+                data-error-for="followUpDate"
+                hidden
+              ></p>
+            </div>
           </div>
           <div class="field">
-            <label for="motivation"
-              >Kort presentation/motivering
-              <span class="optional">(frivilligt)</span></label
-            >
+            <label for="comment">Kommentar</label>
             <textarea
-              id="motivation"
-              name="motivation"
-              rows="3"
-              aria-describedby="motivation-error"
+              id="comment"
+              name="comment"
+              rows="2"
+              aria-describedby="comment-error"
             ></textarea>
             <p
               class="field-error"
-              id="motivation-error"
-              data-error-for="motivation"
+              id="comment-error"
+              data-error-for="comment"
               hidden
             ></p>
           </div>
           <div class="field">
-            <label for="notes">Anteckningar</label>
+            <label for="nextStep">Nästa steg</label>
+            <textarea
+              id="nextStep"
+              name="nextStep"
+              rows="2"
+              aria-describedby="nextStep-error"
+            ></textarea>
+            <p
+              class="field-error"
+              id="nextStep-error"
+              data-error-for="nextStep"
+              hidden
+            ></p>
+          </div>
+          <div class="field">
+            <label for="notes">Notes (till exempel länk till kontakten)</label>
             <textarea
               id="notes"
               name="notes"
-              rows="3"
+              rows="2"
               aria-describedby="notes-error"
             ></textarea>
             <p
@@ -202,28 +330,41 @@
         </form>
       </section>
 
-      <section aria-labelledby="overview-title">
+      <section aria-labelledby="overview-title" id="dashboard">
         <h2 id="overview-title" class="sr-only">Översikt</h2>
-        <dl class="dashboard" id="dashboard">
+        <dl class="dashboard">
           <div class="stat" data-goal="companies">
-            <dt class="stat-label">Företag</dt>
-            <dd class="stat-value" data-stat="companies">0 av 30</dd>
-            <dd class="stat-detail">Godkänt: 30 · Väl godkänt: 50</dd>
-            <dd class="stat-grade" data-stat="companiesGrade">Under godkänt</dd>
+            <dt class="stat-label">Kontaktade företag</dt>
+            <dd class="stat-value" data-stat="companies">0 av 10</dd>
+            <dd class="stat-detail">10 senast 2026-12-31 · 20 senast 2027-01-31</dd>
+            <dd class="stat-grade" data-stat="companiesGrade">Pågår</dd>
           </div>
-          <div class="stat" data-goal="contacts">
-            <dt class="stat-label">Kontaktpersoner med namn</dt>
-            <dd class="stat-value" data-stat="contacts">0 av 15</dd>
-            <dd class="stat-detail">Godkänt: 15 · Väl godkänt: 30</dd>
-            <dd class="stat-grade" data-stat="contactsGrade">Under godkänt</dd>
+          <div class="stat" data-goal="followUps">
+            <dt class="stat-label">Uppföljningar</dt>
+            <dd class="stat-value" data-stat="followUps">0 av 3</dd>
+            <dd class="stat-detail">Poster med uppföljningsdatum</dd>
+            <dd class="stat-grade" data-stat="followUpsGrade">Pågår</dd>
           </div>
-          <div class="stat" data-goal="top">
-            <dt class="stat-label">Presentation och motivering</dt>
-            <dd class="stat-value" data-stat="top">0 av 3</dd>
-            <dd class="stat-detail">Godkänt: topp 3 · Väl godkänt: topp 5</dd>
-            <dd class="stat-grade" data-stat="topGrade">Under godkänt</dd>
+          <div class="stat" data-goal="dialogue">
+            <dt class="stat-label">Intervju eller aktiv dialog</dt>
+            <dd class="stat-value" data-stat="dialogue">0 av 1</dd>
+            <dd class="stat-detail">Senast 2027-02-05</dd>
+            <dd class="stat-grade" data-stat="dialogueGrade">Pågår</dd>
+          </div>
+          <div class="stat" data-goal="interviews">
+            <dt class="stat-label">Intervjuer</dt>
+            <dd class="stat-value" data-stat="interviews">0 av 1</dd>
+            <dd class="stat-detail">Intervju = Ja</dd>
+            <dd class="stat-grade" data-stat="interviewsGrade">Pågår</dd>
+          </div>
+          <div class="stat" data-goal="offers">
+            <dt class="stat-label">Erbjudna LIA-platser</dt>
+            <dd class="stat-value" data-stat="offers">0 av 1</dd>
+            <dd class="stat-detail">Senast 2027-03-05</dd>
+            <dd class="stat-grade" data-stat="offersGrade">Pågår</dd>
           </div>
         </dl>
+        <p class="next-deadline" data-next-deadline></p>
       </section>
 
       <section aria-labelledby="list-heading">
@@ -242,7 +383,7 @@
               <input type="checkbox" id="export-reminder" checked />
               Påminn om Excel-export vid stängning
             </label>
-            <input type="file" id="import-file" accept=".xlsx,.xls" hidden />
+            <input type="file" id="import-file" accept=".xlsx" hidden />
           </div>
         </div>
 
@@ -259,27 +400,39 @@
             />
           </div>
           <div class="field">
-            <label for="filter-contact">Kontaktperson</label>
-            <select id="filter-contact" data-filter="contactPerson">
+            <label for="filter-status">Status</label>
+            <select id="filter-status" data-filter="status">
               <option value="">Alla</option>
-              <option value="has">Har</option>
-              <option value="missing">Saknas</option>
+              <option>Ej kontaktat</option>
+              <option>Ansökan skickad</option>
+              <option>Kontakt etablerad</option>
+              <option>Intervju bokad</option>
+              <option>Avslag</option>
+              <option>LIA-plats klar</option>
             </select>
           </div>
           <div class="field">
-            <label for="filter-email">E-post</label>
-            <select id="filter-email" data-filter="email">
+            <label for="filter-interview">Intervju</label>
+            <select id="filter-interview" data-filter="interview">
               <option value="">Alla</option>
-              <option value="has">Har</option>
-              <option value="missing">Saknas</option>
+              <option>Ja</option>
+              <option>Nej</option>
             </select>
           </div>
           <div class="field">
-            <label for="filter-phone">Telefon</label>
-            <select id="filter-phone" data-filter="phone">
+            <label for="filter-offered">LIA-plats erbjuden</label>
+            <select id="filter-offered" data-filter="offered">
               <option value="">Alla</option>
-              <option value="has">Har</option>
-              <option value="missing">Saknas</option>
+              <option>Ja</option>
+              <option>Nej</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="filter-followup">Uppföljning</label>
+            <select id="filter-followup" data-filter="followUp">
+              <option value="">Alla</option>
+              <option value="overdue">Försenad</option>
+              <option value="upcoming">Kommande</option>
             </select>
           </div>
           <button type="button" class="btn small" id="filter-reset" hidden>
@@ -288,11 +441,7 @@
           <span id="filter-info" class="filter-info" aria-live="polite"></span>
         </div>
 
-        <p id="dnd-help" class="sr-only">
-          Tryck Retur eller mellanslag för att ta tag i kortet, flytta med pil
-          upp och ned, släpp med Retur eller mellanslag. Escape avbryter.
-        </p>
-        <ul id="list" class="list" aria-label="Ansökningar i rangordning"></ul>
+        <ul id="list" class="list" aria-label="Söklogg, senaste datum först"></ul>
         <p id="empty" class="empty">Inga ansökningar ännu.</p>
       </section>
     </main>

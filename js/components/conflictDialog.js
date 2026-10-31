@@ -2,13 +2,21 @@ import { h } from "../utils/dom.js";
 import { normalizeName } from "../utils/text.js";
 
 const FIELD_LABELS = {
-  rank: "Rangordning",
+  date: "Datum",
   city: "Ort",
   contactPerson: "Kontaktperson",
+  title: "Titel",
   email: "E-post",
   phone: "Telefon",
-  motivation: "Presentation",
-  notes: "Anteckningar",
+  method: "Kontaktsätt",
+  status: "Status",
+  responseReceived: "Svar mottaget",
+  interview: "Intervju",
+  offered: "LIA-plats erbjuden",
+  comment: "Kommentar",
+  nextStep: "Nästa steg",
+  followUpDate: "Uppföljning",
+  notes: "Notes",
 };
 
 function describe(app) {
