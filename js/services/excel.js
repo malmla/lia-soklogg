@@ -19,6 +19,7 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 export const SHEET_NAME = "Söklogg";
+const BRANSCH_SHEET_NAME = "Ansökningar";
 const TEMPLATE_ROWS = 201;
 
 export const COLUMNS = {
@@ -41,6 +42,15 @@ export const COLUMNS = {
 };
 
 const REQUIRED_COLUMNS = new Set(["date", "company", "status"]);
+const BRANSCH_COLUMNS = {
+  company: "Företag",
+  city: "Ort",
+  contactPerson: "Kontaktperson",
+  email: "E-post",
+  phone: "Telefonnummer",
+  motivation: "Kort presentation av företaget samt motivering till topp 1-3 / 1-5",
+  notes: "Anteckningar",
+};
 const MAX_LISTED_ERRORS = 10;
 
 export class ExcelError extends Error {
@@ -84,20 +94,81 @@ function cellText(value) {
   return String(value).trim();
 }
 
-/** Parses an .xlsx söklogg into application records. Throws ExcelError with user-friendly messages. */
+function importBranschSheet(sheet, now) {
+  const headerRow = sheet.getRow(1);
+  const columnIndex = {};
+  const missing = [];
+  for (const [field, header] of Object.entries(BRANSCH_COLUMNS)) {
+    let index = 0;
+    for (let i = 1; i <= sheet.columnCount && !index; i++) {
+      if (cellText(headerRow.getCell(i).value) === header) index = i;
+    }
+    if (index) columnIndex[field] = index;
+    else if (field !== "notes") missing.push(header);
+  }
+  if (missing.length) {
+    throw new ExcelError(
+      `Felaktig bransch-tracker-export. Kolumner saknas: ${missing.join(", ")}.`,
+    );
+  }
+
+  const imported = [];
+  const errors = [];
+  for (let line = 2; line <= sheet.rowCount; line++) {
+    const row = sheet.getRow(line);
+    const sourceValues = {};
+    for (const field of Object.keys(BRANSCH_COLUMNS)) {
+      sourceValues[field] = columnIndex[field]
+        ? cellText(row.getCell(columnIndex[field]).value)
+        : "";
+    }
+    if (!Object.values(sourceValues).some(Boolean)) continue;
+
+    const values = Object.fromEntries(FIELDS.map((field) => [field, ""]));
+    values.company = sourceValues.company;
+    values.city = sourceValues.city;
+    values.contactPerson = sourceValues.contactPerson;
+    values.email = sourceValues.email;
+    values.phone = sourceValues.phone;
+    values.comment = sourceValues.motivation;
+    values.notes = sourceValues.notes;
+
+    for (const message of Object.values(validateValues(values, { requireCompany: false }))) {
+      errors.push(`Rad ${line}: ${message}`);
+    }
+    imported.push(createApplication(values, now));
+  }
+
+  if (errors.length) {
+    const details = errors.slice(0, MAX_LISTED_ERRORS);
+    if (errors.length > MAX_LISTED_ERRORS) details.push(`…och ${errors.length - MAX_LISTED_ERRORS} fel till.`);
+    throw new ExcelError("Importen avbröts, inga ansökningar lades till.", details);
+  }
+  if (!imported.length) throw new ExcelError("Filen innehåller inga rader att importera.");
+  return imported;
+}
+
+/** Parses a LIA söklogg or bransch-tracker export into application records. */
 export async function importWorkbook(file, now = new Date().toISOString(), { ExcelJS } = {}) {
   if (file.size > MAX_FILE_BYTES) throw new ExcelError("Filen är för stor (max 5 MB).");
   ExcelJS ??= await loadExcelJs();
 
   let sheet;
+  let branschSheet;
   try {
     const book = new ExcelJS.Workbook();
     await book.xlsx.load(await file.arrayBuffer());
     sheet = book.getWorksheet(SHEET_NAME);
+    branschSheet = book.getWorksheet(BRANSCH_SHEET_NAME);
   } catch {
     throw new ExcelError("Felaktig filstruktur: filen kunde inte läsas som en .xlsx-fil.");
   }
-  if (!sheet) throw new ExcelError(`Felaktig filstruktur. Fliken "${SHEET_NAME}" saknas.`);
+  if (!sheet && branschSheet) return importBranschSheet(branschSheet, now);
+  if (!sheet) {
+    throw new ExcelError(
+      `Felaktig filstruktur. Fliken "${SHEET_NAME}" saknas och exporten känns inte igen som bransch-tracker.`,
+    );
+  }
 
   const headerRow = sheet.getRow(1);
   const columnIndex = {};

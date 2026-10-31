@@ -16,11 +16,48 @@ export function cardSignature({ app, today }) {
   ]);
 }
 
-/** Notes often hold a link (for example a LinkedIn profile); only http(s) links are made clickable. */
+/** Finds web links in notes while leaving surrounding text and punctuation intact. */
+export function findHttpUrls(value) {
+  const links = [];
+  for (const match of value.matchAll(/https?:\/\/[^\s<>"']+/gi)) {
+    let url = match[0];
+    while (/[.,!?;:]$/.test(url)) url = url.slice(0, -1);
+    for (const [open, close] of [["(", ")"], ["[", "]"], ["{", "}"]]) {
+      const count = (character) => [...url].filter((part) => part === character).length;
+      while (url.endsWith(close) && count(close) > count(open)) {
+        url = url.slice(0, -1);
+      }
+    }
+
+    const start = match.index;
+    if (!url || start === undefined) continue;
+    try {
+      const parsed = new URL(url);
+      if ((parsed.protocol === "http:" || parsed.protocol === "https:") && parsed.hostname) {
+        links.push({ start, end: start + url.length, url });
+      }
+    } catch {
+      // Ignore malformed URL-like text.
+    }
+  }
+  return links;
+}
+
 function noteContent(value) {
-  return /^https?:\/\/\S+$/i.test(value)
-    ? h("a", { href: value, target: "_blank", rel: "noopener noreferrer" }, value)
-    : value;
+  const links = findHttpUrls(value);
+  if (!links.length) return [value];
+
+  const content = [];
+  let cursor = 0;
+  for (const link of links) {
+    if (link.start > cursor) content.push(value.slice(cursor, link.start));
+    content.push(
+      h("a", { href: link.url, target: "_blank", rel: "noopener noreferrer" }, link.url),
+    );
+    cursor = link.end;
+  }
+  if (cursor < value.length) content.push(value.slice(cursor));
+  return content;
 }
 
 export function createCard({ app, today }) {
@@ -79,7 +116,9 @@ export function createCard({ app, today }) {
   ]
     .filter(([, value]) => value)
     .map(([label, value]) => h("p", { class: "text" }, h("strong", {}, label), value));
-  const notes = app.notes ? h("p", { class: "text" }, h("strong", {}, "Notes"), noteContent(app.notes)) : null;
+  const notes = app.notes
+    ? h("p", { class: "text" }, h("strong", {}, "Notes"), ...noteContent(app.notes))
+    : null;
 
   const actions = h(
     "div",

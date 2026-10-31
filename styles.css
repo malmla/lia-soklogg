@@ -568,6 +568,11 @@ p.status {
   overflow-wrap: anywhere;
 }
 
+.text a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
 .text strong {
   font-size: .8rem;
   text-transform: uppercase;

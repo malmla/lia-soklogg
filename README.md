@@ -11,8 +11,10 @@ Projektet används också som övning i Google Analytics 4 (GA4) och Google Tag 
 - Filter på företag, status, intervju, erbjudande och uppföljning.
 - Översikt över antal företag, uppföljningar, aktiv dialog, intervjuer och erbjudanden samt nästa deadline.
 - Export till Excel som en fullständig kopia av mallen (`assets/lia-soklogg-mall.xlsx`) med rullgardiner och formler bevarade.
-- Import från samma Excelfil, med hantering av konflikter.
+- Import från LIA-sökloggens Excelmall och bransch-tracker-export, med hantering av konflikter.
 - Ljust och mörkt tema.
+
+Vid import från bransch-tracker läggs motiveringen i Kommentar och Anteckningar i Övrigt. Rangordning importeras inte; datum och status lämnas tomma.
 
 Datum skrivs som `yyyy-mm-dd`.
 

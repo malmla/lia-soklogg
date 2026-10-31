@@ -7,6 +7,7 @@ import { createFilters, matchesFilters } from "../js/model/filters.js";
 import { planImport } from "../js/model/importPlan.js";
 import { sortApplications } from "../js/model/sorting.js";
 import { getDashboardMetrics, nextMilestone } from "../js/components/dashboard.js";
+import { findHttpUrls } from "../js/components/applicationCard.js";
 import { exportWorkbook, ExcelError, importWorkbook } from "../js/services/excel.js";
 import { createStorage } from "../js/services/storage.js";
 import { createStore } from "../js/state/store.js";
@@ -42,6 +43,14 @@ test("page element IDs are unique and app feedback has a distinct target from ap
   assert.equal(new Set(ids).size, ids.length, "HTML element IDs must be unique");
   assert.match(html, /<select id="status" name="status"/);
   assert.match(html, /<div id="app-status" class="status"/);
+});
+
+test("URLs in notes are detected without trailing punctuation or unsafe schemes", () => {
+  const text = "LinkedIn: https://example.com/profile, portfolio (https://example.org/work). javascript:alert(1)";
+  assert.deepEqual(findHttpUrls(text), [
+    { start: 10, end: 37, url: "https://example.com/profile" },
+    { start: 50, end: 74, url: "https://example.org/work" },
+  ]);
 });
 
 test("legacy ranked records are normalized into the söklogg model", () => {
@@ -305,6 +314,56 @@ test("export formulas cover more rows than the template holds", async () => {
   await book.xlsx.load(await blob.arrayBuffer());
   assert.equal(book.getWorksheet("Min status").getCell("B3").value.formula, "COUNTA(Söklogg!B2:B251)");
   assert.equal(book.getWorksheet("Söklogg").getCell("B251").value, "Företag 99");
+});
+
+test("imports a bransch-tracker export and maps fields to the LIA log", async () => {
+  const book = new ExcelJS.Workbook();
+  const sheet = book.addWorksheet("Ansökningar");
+  sheet.addRow([
+    "Rangordning",
+    "Företag",
+    "Ort",
+    "Kontaktperson",
+    "E-post",
+    "Telefonnummer",
+    "Kort presentation av företaget samt motivering till topp 1-3 / 1-5",
+    "Anteckningar",
+  ]);
+  sheet.addRow([
+    1,
+    "Exempelföretag",
+    "Malmö",
+    "Ada Andersson",
+    "ada@example.com",
+    "070 123 45 67",
+    "Intressant bransch och bra match.",
+    "Kontakta efter sommaren.",
+  ]);
+
+  const imported = await importWorkbook(
+    await asFile(new Blob([await book.xlsx.writeBuffer()])),
+    "2026-10-31",
+    { ExcelJS },
+  );
+  assert.equal(imported.length, 1);
+  assert.deepEqual(
+    Object.fromEntries(
+      ["company", "city", "contactPerson", "email", "phone", "comment", "notes", "date", "status"]
+        .map((field) => [field, imported[0][field]]),
+    ),
+    {
+      company: "Exempelföretag",
+      city: "Malmö",
+      contactPerson: "Ada Andersson",
+      email: "ada@example.com",
+      phone: "070 123 45 67",
+      comment: "Intressant bransch och bra match.",
+      notes: "Kontakta efter sommaren.",
+      date: "",
+      status: "",
+    },
+  );
+  assert.equal("rank" in imported[0], false);
 });
 
 test("import rejects other workbooks and invalid values with clear messages", async () => {
