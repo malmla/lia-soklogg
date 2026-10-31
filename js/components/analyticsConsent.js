@@ -76,6 +76,13 @@ export function createAnalyticsConsent(toggle, dialog, { onError = () => {} } = 
     }
 
     const dataLayer = (window.dataLayer = window.dataLayer || []);
+    const originalPush = dataLayer.push.bind(dataLayer);
+    dataLayer.push = (...items) => {
+      for (const item of items) {
+        console.log("[GTM dataLayer]", item.event ?? "(no event)", { ...item });
+      }
+      return originalPush(...items);
+    };
     gtag = function () {
       dataLayer.push(arguments);
     };
