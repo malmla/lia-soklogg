@@ -1,5 +1,5 @@
 const CONSENT_KEY = "lia-analytics-consent";
-const GTM_ID = "GTM-58ZHW293";
+const GTM_ID = "GTM-K2Z8CDDC";
 const TRACKED_FEATURES = new Set([
   "import",
   "export",
