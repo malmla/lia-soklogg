@@ -56,7 +56,7 @@ async function updateVersionTracker(element) {
 
 export function startApp() {
   updateVersionTracker(must("version-tracker"));
-  const status = createStatus(must("status"));
+  const status = createStatus(must("app-status"));
   const announce = createAnnouncer(must("announcer"));
 
   const store = createStore({

@@ -35,6 +35,15 @@ const blank = {
   followUpDate: "", notes: "",
 };
 
+test("page element IDs are unique and app feedback has a distinct target from application status", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+
+  assert.equal(new Set(ids).size, ids.length, "HTML element IDs must be unique");
+  assert.match(html, /<select id="status" name="status"/);
+  assert.match(html, /<div id="app-status" class="status"/);
+});
+
 test("legacy ranked records are normalized into the söklogg model", () => {
   const backend = memoryBackend({
     applications: JSON.stringify([
