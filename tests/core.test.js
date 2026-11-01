@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import ExcelJS from "exceljs";
 import { isIncomplete, validateValues } from "../js/model/application.js";
-import { createFilters, matchesFilters } from "../js/model/filters.js";
+import { createFilters, EMPTY_FILTER_VALUE, matchesFilters } from "../js/model/filters.js";
 import { planImport } from "../js/model/importPlan.js";
 import { sortApplications } from "../js/model/sorting.js";
 import { getDashboardMetrics, nextMilestone } from "../js/components/dashboard.js";
@@ -43,6 +43,12 @@ test("page element IDs are unique and app feedback has a distinct target from ap
   assert.equal(new Set(ids).size, ids.length, "HTML element IDs must be unique");
   assert.match(html, /<select id="status" name="status"/);
   assert.match(html, /<div id="app-status" class="status"/);
+  assert.match(html, /<details class="filter-panel">/);
+  for (const id of ["filter-status", "filter-interview", "filter-offered", "filter-followup"]) {
+    const select = html.match(new RegExp(`<select id="${id}"[\\s\\S]*?</select>`))?.[0] ?? "";
+    assert.match(select, /<option value="\[tom\]">\[tom\]<\/option>/, `${id} must offer [tom]`);
+  }
+  assert.match(html, /placeholder="Sök företagsnamn eller \[tom\]"/);
 });
 
 test("URLs in notes are detected without trailing punctuation or unsafe schemes", () => {
@@ -225,6 +231,24 @@ test("filters combine with AND and follow-up filters compare against today", () 
   followUp.followUp = "upcoming";
   assert.equal(matchesFilters({ ...app, followUpDate: "2026-11-01" }, followUp, today), true);
   assert.equal(matchesFilters(app, followUp, today), false);
+});
+
+test("filters can find missing values for every filterable field", () => {
+  const missing = { company: "", status: "", interview: "", offered: "", followUpDate: "" };
+  const populated = {
+    company: "IKEA",
+    status: "Ansökan skickad",
+    interview: "Nej",
+    offered: "Ja",
+    followUpDate: "2026-11-02",
+  };
+
+  for (const field of ["company", "status", "interview", "offered", "followUp"]) {
+    const filters = createFilters();
+    filters[field] = EMPTY_FILTER_VALUE;
+    assert.equal(matchesFilters(missing, filters, "2026-11-01"), true, `${field} should match empty`);
+    assert.equal(matchesFilters(populated, filters, "2026-11-01"), false, `${field} should reject filled`);
+  }
 });
 
 test("company filter matches case-insensitive substrings", () => {

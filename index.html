@@ -391,75 +391,90 @@
 
         <div id="app-status" class="status" hidden></div>
 
-        <div class="filters" id="filters" role="group" aria-label="Filter">
-          <div class="field">
-            <label for="filter-company">Företagsnamn</label>
-            <input
-              type="search"
-              id="filter-company"
-              data-filter="company"
-              placeholder="Sök företagsnamn"
-            />
-          </div>
-          <div class="field">
-            <label for="filter-status">Status</label>
-            <select id="filter-status" data-filter="status">
-              <option value="">Alla</option>
-              <option>Ej kontaktat</option>
-              <option>Ansökan skickad</option>
-              <option>Kontakt etablerad</option>
-              <option>Intervju bokad</option>
-              <option>Avslag</option>
-              <option>LIA-plats klar</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="filter-interview">Intervju</label>
-            <select id="filter-interview" data-filter="interview">
-              <option value="">Alla</option>
-              <option>Ja</option>
-              <option>Nej</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="filter-offered">LIA-plats erbjuden</label>
-            <select id="filter-offered" data-filter="offered">
-              <option value="">Alla</option>
-              <option>Ja</option>
-              <option>Nej</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="filter-followup">Uppföljning</label>
-            <select id="filter-followup" data-filter="followUp">
-              <option value="">Alla</option>
-              <option value="overdue">Försenad</option>
-              <option value="upcoming">Kommande</option>
-            </select>
-          </div>
-          <button type="button" class="btn small" id="filter-reset" hidden>
-            Rensa filter
-          </button>
-          <span id="filter-info" class="filter-info" aria-live="polite"></span>
-        </div>
+        <details class="filter-panel">
+          <summary>
+            Sök och filter
+            <span id="filter-info" class="filter-info" aria-live="polite"></span>
+          </summary>
+          <div class="filter-panel-content">
+            <div class="filters" id="filters" role="group" aria-label="Filter">
+              <div class="field">
+                <label for="filter-company">Företagsnamn</label>
+                <input
+                  type="search"
+                  id="filter-company"
+                  data-filter="company"
+                  list="company-filter-options"
+                  placeholder="Sök företagsnamn eller [tom]"
+                />
+                <datalist id="company-filter-options">
+                  <option value="[tom]"></option>
+                </datalist>
+              </div>
+              <div class="field">
+                <label for="filter-status">Status</label>
+                <select id="filter-status" data-filter="status">
+                  <option value="">Alla</option>
+                  <option value="[tom]">[tom]</option>
+                  <option>Ej kontaktat</option>
+                  <option>Ansökan skickad</option>
+                  <option>Kontakt etablerad</option>
+                  <option>Intervju bokad</option>
+                  <option>Avslag</option>
+                  <option>LIA-plats klar</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="filter-interview">Intervju</label>
+                <select id="filter-interview" data-filter="interview">
+                  <option value="">Alla</option>
+                  <option value="[tom]">[tom]</option>
+                  <option>Ja</option>
+                  <option>Nej</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="filter-offered">LIA-plats erbjuden</label>
+                <select id="filter-offered" data-filter="offered">
+                  <option value="">Alla</option>
+                  <option value="[tom]">[tom]</option>
+                  <option>Ja</option>
+                  <option>Nej</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="filter-followup">Uppföljning</label>
+                <select id="filter-followup" data-filter="followUp">
+                  <option value="">Alla</option>
+                  <option value="[tom]">[tom]</option>
+                  <option value="overdue">Försenad</option>
+                  <option value="upcoming">Kommande</option>
+                </select>
+              </div>
+              <button type="button" class="btn small" id="filter-reset" hidden>
+                Rensa filter
+              </button>
+            </div>
 
-        <div class="sort-controls" role="group" aria-label="Sortera listan">
-          <div class="field">
-            <label for="sort-field">Sortera efter</label>
-            <select id="sort-field">
-              <option value="date">Datum</option>
-              <option value="followUpDate">Uppföljningsdatum</option>
-              <option value="company">Företagsnamn</option>
-            </select>
+            <div class="sort-controls" role="group" aria-label="Sortera listan">
+              <div class="field">
+                <label for="sort-field">Sortera efter</label>
+                <select id="sort-field">
+                  <option value="date">Datum</option>
+                  <option value="followUpDate">Uppföljningsdatum</option>
+                  <option value="company">Företagsnamn</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="sort-direction">Ordning</label>
+                <select id="sort-direction">
+                  <option value="desc">Fallande</option>
+                  <option value="asc">Stigande</option>
+                </select>
+              </div>
+            </div>
           </div>
-          <div class="field">
-            <label for="sort-direction">Ordning</label>
-            <select id="sort-direction">
-              <option value="desc">Fallande</option>
-              <option value="asc">Stigande</option>
-            </select>
-          </div>
-        </div>
+        </details>
 
         <ul id="list" class="list" aria-label="Söklogg"></ul>
         <p id="empty" class="empty">Inga ansökningar ännu.</p>
