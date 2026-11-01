@@ -20,10 +20,6 @@
     <a class="skip-link" href="#main">Hoppa till innehållet</a>
 
     <header class="app-header">
-      <h1>LIA-söklogg</h1>
-      <p class="version-tracker" id="version-tracker" aria-live="polite">
-        Senaste push: hämtas ...
-      </p>
       <div class="header-settings">
         <button
           type="button"
@@ -31,7 +27,8 @@
           id="theme-toggle"
           aria-pressed="false"
         >
-          <span aria-hidden="true">◐</span> Mörkt läge
+          <span class="setting-switch" aria-hidden="true"></span>
+          Mörkt läge
         </button>
         <button
           type="button"
@@ -40,9 +37,22 @@
           role="switch"
           aria-checked="false"
         >
-          Analys: av
+          Analys
         </button>
+        <label class="export-reminder" for="export-reminder">
+          <input
+            type="checkbox"
+            id="export-reminder"
+            aria-label="Påminn om Excel-export vid stängning"
+            checked
+          />
+          <span>Exportpåminnelse</span>
+        </label>
       </div>
+      <h1>LIA-söklogg</h1>
+      <p class="version-tracker" id="version-tracker" aria-live="polite">
+        Senaste push: hämtas ...
+      </p>
     </header>
 
     <main id="main">
@@ -381,10 +391,6 @@
             <button type="button" class="btn small" id="import-btn">
               Importera från Excel
             </button>
-            <label class="export-reminder" for="export-reminder">
-              <input type="checkbox" id="export-reminder" checked />
-              Påminn om Excel-export vid stängning
-            </label>
             <input type="file" id="import-file" accept=".xlsx" hidden />
           </div>
         </div>

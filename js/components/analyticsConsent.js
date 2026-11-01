@@ -49,7 +49,6 @@ export function createAnalyticsConsent(toggle, dialog, { onError = () => {} } = 
 
   const syncToggle = () => {
     toggle.setAttribute("aria-checked", String(enabled));
-    toggle.textContent = `Analys: ${enabled ? "på" : "av"}`;
   };
 
   const saveConsent = (value) => {

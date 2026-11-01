@@ -176,7 +176,8 @@ body {
 .app-header {
   background: linear-gradient(135deg, var(--header-from), var(--header-to));
   color: #fff;
-  padding: 2rem 1rem 1rem;
+  min-height: 7rem;
+  padding: .75rem 1rem;
   margin-bottom: 2rem;
   text-align: center;
   position: relative;
@@ -195,37 +196,80 @@ body {
 
 .header-settings {
   position: absolute;
-  top: .75rem;
+  top: .5rem;
   right: .75rem;
   display: grid;
-  gap: .4rem;
+  justify-items: stretch;
+  gap: .1rem;
+  width: max-content;
+  margin: 0;
 }
 
 .theme-toggle,
 .analytics-toggle {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  width: 100%;
+  min-height: 30px;
   font: inherit;
-  font-size: .85rem;
+  font-size: .75rem;
   color: #fff;
-  background: rgba(255, 255, 255, .15);
-  border: 1px solid rgba(255, 255, 255, .6);
-  border-radius: 999px;
-  padding: .3rem .8rem;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  padding: .1rem .25rem;
   cursor: pointer;
 }
 
+.setting-switch,
+.analytics-toggle::before {
+  content: "";
+  display: inline-block;
+  flex: 0 0 1.55rem;
+  width: 1.55rem;
+  height: .9rem;
+  border: 1px solid rgba(255, 255, 255, .8);
+  border-radius: 999px;
+  background-color: rgba(0, 0, 0, .25);
+  background-image: radial-gradient(circle at .45rem 50%, #fff 0 .3rem, transparent .32rem);
+  background-repeat: no-repeat;
+}
+
+.theme-toggle[aria-pressed="true"] .setting-switch,
+.analytics-toggle[aria-checked="true"]::before {
+  background-color: rgba(255, 255, 255, .5);
+  background-image: radial-gradient(circle at 1.1rem 50%, #fff 0 .3rem, transparent .32rem);
+}
+
 .theme-toggle:hover,
-.analytics-toggle:hover {
-  background: rgba(255, 255, 255, .28);
+.analytics-toggle:hover,
+.header-settings .export-reminder:hover {
+  background: rgba(255, 255, 255, .14);
+}
+
+.header-settings .export-reminder {
+  width: 100%;
+  min-height: 30px;
+  padding: .1rem .25rem;
+  color: #fff;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  font-size: .75rem;
+  font-weight: 400;
+  white-space: nowrap;
 }
 
 .theme-toggle:focus-visible,
-.analytics-toggle:focus-visible {
+.analytics-toggle:focus-visible,
+.header-settings .export-reminder:focus-within {
   outline-color: #fff;
 }
 
 .theme-toggle[aria-pressed="true"],
 .analytics-toggle[aria-checked="true"] {
-  background: rgba(0, 0, 0, .3);
+  background: rgba(0, 0, 0, .16);
 }
 
 main {
@@ -444,8 +488,57 @@ p.status {
 }
 
 .export-reminder input {
+  appearance: none;
+  position: relative;
+  display: inline-block;
+  flex: 0 0 1.55rem;
+  width: 1.55rem;
+  height: .9rem;
   margin: 0;
-  accent-color: var(--primary);
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .8);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .25);
+  cursor: pointer;
+  transition: background-color .2s ease;
+}
+
+.export-reminder input::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: .12rem;
+  width: .65rem;
+  height: .65rem;
+  border-radius: 50%;
+  background: #fff;
+  transform: translateY(-50%);
+  transition: left .2s ease;
+}
+
+.export-reminder input:checked {
+  background: rgba(255, 255, 255, .5);
+}
+
+.export-reminder input:checked::before {
+  left: calc(100% - .77rem);
+}
+
+.export-reminder input:focus-visible {
+  outline-color: #fff;
+}
+
+@media (forced-colors: active) {
+  .export-reminder input {
+    appearance: auto;
+    width: auto;
+    height: auto;
+    background: Canvas;
+  }
+
+  .export-reminder input::before {
+    content: none;
+  }
 }
 
 .list {
@@ -851,24 +944,6 @@ p.status {
     flex: 1;
   }
 
-  .header-settings {
-    position: static;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    width: 100%;
-    margin: .75rem auto 0;
-  }
-
-  .theme-toggle,
-  .analytics-toggle {
-    min-height: 44px;
-  }
-
-  .app-header {
-    padding-bottom: 3.5rem;
-  }
-
   .list-header {
     align-items: stretch;
   }
@@ -881,9 +956,37 @@ p.status {
   .list-tools > .btn {
     flex: 1 1 10rem;
   }
+}
 
-  .export-reminder {
-    flex: 1 1 100%;
+@media (max-width: 700px) {
+  .app-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "title settings"
+      "version settings";
+    align-items: center;
+    column-gap: .75rem;
+    min-height: 7rem;
+    padding: .75rem;
+    margin-bottom: 1.5rem;
+    text-align: left;
+  }
+
+  .app-header h1 {
+    grid-area: title;
+    font-size: clamp(1.2rem, 5vw, 1.8rem);
+  }
+
+  .version-tracker {
+    grid-area: version;
+    overflow-wrap: anywhere;
+  }
+
+  .header-settings {
+    position: static;
+    grid-area: settings;
+    max-width: 100%;
   }
 }
 
