@@ -721,6 +721,10 @@ p.status {
   padding: 0 .75rem .75rem;
 }
 
+.filter-panel:not([open]) > .filter-panel-content {
+  display: none;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -748,7 +752,7 @@ p.status {
 
 .sort-controls .field {
   margin: 0;
-  flex: 0 1 190px;
+  flex: 1 1 140px;
 }
 
 .dialog {
@@ -824,6 +828,15 @@ p.status {
 }
 
 @media (max-width: 600px) {
+  main {
+    gap: 1.25rem;
+    padding: .75rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
   .item {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -840,12 +853,52 @@ p.status {
 
   .header-settings {
     position: static;
-    width: max-content;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
     margin: .75rem auto 0;
+  }
+
+  .theme-toggle,
+  .analytics-toggle {
+    min-height: 44px;
   }
 
   .app-header {
     padding-bottom: 3.5rem;
+  }
+
+  .list-header {
+    align-items: stretch;
+  }
+
+  .list-header h2,
+  .list-tools {
+    flex-basis: 100%;
+  }
+
+  .list-tools > .btn {
+    flex: 1 1 10rem;
+  }
+
+  .export-reminder {
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  main {
+    gap: 1rem;
+    padding: .625rem;
+  }
+
+  .card {
+    padding: .875rem;
+  }
+
+  .list-tools > .btn {
+    flex-basis: 100%;
   }
 }
 
