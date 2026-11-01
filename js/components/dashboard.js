@@ -16,7 +16,8 @@ function single(value, target) {
 
 /** The Min status figures plus progress against the milestones in the template's instructions. */
 export function getDashboardMetrics(applications) {
-  const companies = count(applications, (app) => isFilled(app.company));
+  const companies = count(applications, (app) => isFilled(app.company) && isFilled(app.status) && app.status !== "Ej kontaktat",
+  );
 
   return {
     companies: {

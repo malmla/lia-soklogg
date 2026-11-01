@@ -241,7 +241,12 @@ test("dashboard reproduces the Min status counts and milestone goals", () => {
     offers: { value: 1, target: 1, grade: "distinction" },
   });
 
-  const few = getDashboardMetrics([{ ...blank, company: "A" }, { ...blank, company: "" }]);
+  const few = getDashboardMetrics([
+    { ...blank, company: "A", status: "Ansökan skickad" },
+    { ...blank, company: "B", status: "Ej kontaktat" },
+    { ...blank, company: "C", status: "" },
+    { ...blank, company: "", status: "Avslag" },
+  ]);
   assert.deepEqual(few.companies, { value: 1, target: 10, grade: "below" });
   assert.deepEqual(few.dialogue, { value: 0, target: 1, grade: "below" });
   assert.equal(getDashboardMetrics(apps.slice(0, 10)).companies.grade, "pass");
