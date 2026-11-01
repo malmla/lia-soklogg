@@ -243,11 +243,22 @@ test("filters can find missing values for every filterable field", () => {
     followUpDate: "2026-11-02",
   };
 
-  for (const field of ["company", "status", "interview", "offered", "followUp"]) {
+  for (const [field, valueField] of [
+    ["company", "company"],
+    ["status", "status"],
+    ["interview", "interview"],
+    ["offered", "offered"],
+    ["followUp", "followUpDate"],
+  ]) {
     const filters = createFilters();
     filters[field] = EMPTY_FILTER_VALUE;
     assert.equal(matchesFilters(missing, filters, "2026-11-01"), true, `${field} should match empty`);
     assert.equal(matchesFilters(populated, filters, "2026-11-01"), false, `${field} should reject filled`);
+    assert.equal(
+      matchesFilters({ ...missing, [valueField]: EMPTY_FILTER_VALUE }, filters, "2026-11-01"),
+      false,
+      `${field} should not treat the literal marker as empty`,
+    );
   }
 });
 

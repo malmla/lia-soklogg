@@ -693,6 +693,26 @@ p.status {
   padding: .75rem 1rem;
   cursor: pointer;
   font-weight: 600;
+  list-style: none;
+}
+
+.filter-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.filter-panel > summary::after {
+  content: "";
+  width: .5rem;
+  height: .5rem;
+  margin-left: auto;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform .2s ease;
+}
+
+.filter-panel[open] > summary::after {
+  transform: rotate(225deg);
 }
 
 .filter-panel-content {
