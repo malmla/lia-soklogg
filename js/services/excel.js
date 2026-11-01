@@ -244,7 +244,7 @@ export async function exportWorkbook(applications, { ExcelJS, templateData } = {
     }
   }
 
-  const rows = sortApplications(applications).map(cleanValues);
+  const rows = sortApplications(applications, "date", "asc").map(cleanValues);
   const lastRow = Math.max(TEMPLATE_ROWS, rows.length + 1);
 
   rows.forEach((values, i) => {

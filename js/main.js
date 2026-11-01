@@ -149,21 +149,33 @@ export function startApp() {
   });
 
   const count = must("count");
+  const sortField = must("sort-field");
+  const sortDirection = must("sort-direction");
+  const listElement = must("list");
 
   function render({ applications, filters }) {
     const total = applications.length;
     const filtering = isFiltering(filters);
     const today = todayIso();
 
-    const visible = sortApplications(applications)
+    const visible = sortApplications(applications, sortField.value, sortDirection.value)
       .filter((app) => matchesFilters(app, filters, today))
       .map((app) => ({ app, today }));
 
     count.textContent = total;
+    listElement.setAttribute(
+      "aria-label",
+      `Söklogg, sorterad efter ${sortField.selectedOptions[0].textContent.toLowerCase()}, ${
+        sortDirection.value === "asc" ? "stigande" : "fallande"
+      }`,
+    );
     dashboard.update(applications, today);
     filterBar.update({ filters, filtering, shown: visible.length, total });
     list.update(visible, { total, filtering });
   }
+
+  sortField.addEventListener("change", () => render(store.getState()));
+  sortDirection.addEventListener("change", () => render(store.getState()));
 
   store.subscribe(render);
 

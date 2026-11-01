@@ -443,11 +443,25 @@
           <span id="filter-info" class="filter-info" aria-live="polite"></span>
         </div>
 
-        <ul
-          id="list"
-          class="list"
-          aria-label="Söklogg, senaste datum först"
-        ></ul>
+        <div class="sort-controls" role="group" aria-label="Sortera listan">
+          <div class="field">
+            <label for="sort-field">Sortera efter</label>
+            <select id="sort-field">
+              <option value="date">Datum</option>
+              <option value="followUpDate">Uppföljningsdatum</option>
+              <option value="company">Företagsnamn</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="sort-direction">Ordning</label>
+            <select id="sort-direction">
+              <option value="desc">Fallande</option>
+              <option value="asc">Stigande</option>
+            </select>
+          </div>
+        </div>
+
+        <ul id="list" class="list" aria-label="Söklogg"></ul>
         <p id="empty" class="empty">Inga ansökningar ännu.</p>
       </section>
     </main>

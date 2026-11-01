@@ -100,14 +100,25 @@ test("only company is required; dates, status, Ja/Nej and email are validated wh
   assert.equal(isIncomplete({ company: "IKEA", date: "2026-10-20" }), false);
 });
 
-test("applications sort by date, newest first, with undated entries last", () => {
+test("applications sort by selected field and direction, with empty values last", () => {
   const apps = [
-    { company: "B", date: "2026-10-20" },
+    { company: "B", date: "2026-10-20", followUpDate: "2026-11-02" },
     { company: "Ö", date: "" },
-    { company: "A", date: "2026-10-20" },
-    { company: "C", date: "2026-11-02" },
+    { company: "A", date: "2026-10-20", followUpDate: "2026-10-30" },
+    { company: "C", date: "2026-11-02", followUpDate: "" },
   ];
   assert.deepEqual(sortApplications(apps).map((app) => app.company), ["C", "A", "B", "Ö"]);
+  assert.deepEqual(sortApplications(apps, "date", "asc").map((app) => app.company), ["A", "B", "C", "Ö"]);
+  assert.deepEqual(
+    sortApplications(apps, "followUpDate", "asc").map((app) => app.company),
+    ["A", "B", "C", "Ö"],
+  );
+  assert.deepEqual(
+    sortApplications(apps, "followUpDate", "desc").map((app) => app.company),
+    ["B", "A", "C", "Ö"],
+  );
+  assert.deepEqual(sortApplications(apps, "company", "asc").map((app) => app.company), ["A", "B", "C", "Ö"]);
+  assert.deepEqual(sortApplications(apps, "company", "desc").map((app) => app.company), ["Ö", "C", "B", "A"]);
 });
 
 test("store creates, edits and removes applications with timestamps", () => {
@@ -290,14 +301,19 @@ test("export makes a full copy of the template and the result imports back uncha
   });
   store.saveApplication({ date: "2026-10-21", company: "Handelsbanken", status: "Intervju bokad", interview: "Ja" });
 
-  const blob = await exportWorkbook(store.getState().applications, { ExcelJS, templateData: await templateData() });
+  const blob = await exportWorkbook([...store.getState().applications].reverse(), {
+    ExcelJS,
+    templateData: await templateData(),
+  });
   const book = new ExcelJS.Workbook();
   await book.xlsx.load(await blob.arrayBuffer());
   assert.deepEqual(book.worksheets.map((sheet) => sheet.name), ["Instruktioner", "Söklogg", "Min status", "Listor"]);
 
   const sheet = book.getWorksheet("Söklogg");
-  assert.equal(sheet.getCell("B2").value, "Handelsbanken");
-  assert.equal(sheet.getCell("A3").value.toISOString().slice(0, 10), "2026-10-20");
+  assert.equal(sheet.getCell("B2").value, "itm8");
+  assert.equal(sheet.getCell("A2").value.toISOString().slice(0, 10), "2026-10-20");
+  assert.equal(sheet.getCell("B3").value, "Handelsbanken");
+  assert.equal(sheet.getCell("A3").value.toISOString().slice(0, 10), "2026-10-21");
   assert.equal(sheet.getCell("A3").numFmt, "yyyy-mm-dd");
   assert.equal(sheet.getCell("I3").dataValidation.formulae[0], "Listor!$A$1:$A$6");
   assert.equal(sheet.getCell("K200").dataValidation.formulae[0], "Listor!$B$1:$B$2");

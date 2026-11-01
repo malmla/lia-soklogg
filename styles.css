@@ -701,6 +701,19 @@ p.status {
   align-self: center;
 }
 
+.sort-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: .75rem;
+  margin-bottom: 1rem;
+}
+
+.sort-controls .field {
+  margin: 0;
+  flex: 0 1 190px;
+}
+
 .dialog {
   border: none;
   border-radius: var(--radius);
