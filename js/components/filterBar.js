@@ -23,7 +23,7 @@ export function createFilterBar(
   for (const checkbox of statuses) {
     checkbox.addEventListener("change", () => {
       onChange("status", statuses.filter((item) => item.checked).map((item) => item.value));
-      onUse("status", checkbox.value);
+      onUse("status", checkbox.value, checkbox.checked);
     });
   }
   for (const button of presets) {

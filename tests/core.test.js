@@ -9,6 +9,7 @@ import { sortApplications } from "../js/model/sorting.js";
 import { getDashboardMetrics, nextMilestone } from "../js/components/dashboard.js";
 import { findHttpUrls } from "../js/components/applicationCard.js";
 import { createFilterBar } from "../js/components/filterBar.js";
+import { createAnalyticsConsent } from "../js/components/analyticsConsent.js";
 import { exportWorkbook, ExcelError, importWorkbook } from "../js/services/excel.js";
 import { createStorage } from "../js/services/storage.js";
 import { createStore } from "../js/state/store.js";
@@ -303,7 +304,7 @@ test("status checkbox controls and presets update filter state and reset", () =>
     resetButton: reset,
     info,
     onChange: (field, value) => store.setFilter(field, value),
-    onUse: (field, value) => events.push([field, value]),
+    onUse: (...args) => events.push(args),
     onReset: () => store.resetFilters(),
   });
   const render = () => bar.update({ filters: store.getState().filters, filtering: isFiltering(store.getState().filters), shown: 1, total: 2 });
@@ -320,6 +321,10 @@ test("status checkbox controls and presets update filter state and reset", () =>
   statuses[0].checked = false;
   statuses[0].dispatchEvent(new Event("change"));
   assert.equal(store.getState().filters.status.includes(EMPTY_FILTER_VALUE), false);
+  assert.deepEqual(events.at(-1), ["status", EMPTY_FILTER_VALUE, false]);
+  statuses[0].checked = true;
+  statuses[0].dispatchEvent(new Event("change"));
+  assert.deepEqual(events.at(-1), ["status", EMPTY_FILTER_VALUE, true]);
   all.click();
   assert.equal(reset.hidden, true);
   assert.ok(statuses.every((item) => item.checked));
@@ -328,6 +333,48 @@ test("status checkbox controls and presets update filter state and reset", () =>
   reset.click();
   assert.ok(statuses.every((item) => item.checked));
   assert.equal(reset.hidden, true);
+});
+
+test("filter analytics distinguish status selections without retaining selection on presets", (t) => {
+  const saved = new Map(["localStorage", "window", "document"].map((key) => [
+    key, Object.getOwnPropertyDescriptor(globalThis, key),
+  ]));
+  t.after(() => {
+    for (const [key, descriptor] of saved) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  });
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true, value: { getItem: () => "granted", setItem() {} },
+  });
+  Object.defineProperty(globalThis, "window", { configurable: true, value: {} });
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: { createElement: () => new EventTarget(), head: { append() {} } },
+  });
+  t.mock.method(console, "log", () => {});
+
+  const toggle = new EventTarget();
+  toggle.setAttribute = () => {};
+  const button = new EventTarget();
+  const dialog = { querySelector: () => button };
+  const analytics = createAnalyticsConsent(toggle, dialog);
+  analytics.trackFilter("status", "Avslag", false);
+  analytics.trackFilter("status", "Avslag", true);
+  analytics.trackFilter("status", EXCLUDE_REJECTED_FILTER_VALUE);
+  analytics.trackFilter("interview", "Ja");
+
+  const events = window.dataLayer.filter((item) => item.event === "filter_used");
+  assert.deepEqual(events, [
+    { event: "filter_used", filter_field: "status", filter_mode: "rejected", filter_selection: "deselected" },
+    { event: "filter_used", filter_field: "status", filter_mode: "rejected", filter_selection: "selected" },
+    { event: "filter_used", filter_field: "status", filter_mode: "exclude_rejected", filter_selection: null },
+    { event: "filter_used", filter_field: "interview", filter_mode: "yes", filter_selection: null },
+  ]);
+  toggle.dispatchEvent(new Event("click"));
+  analytics.trackFilter("status", "Avslag", false);
+  assert.equal(window.dataLayer.filter((item) => item.event === "filter_used").length, 4);
 });
 
 test("filters can find missing values for every filterable field", () => {

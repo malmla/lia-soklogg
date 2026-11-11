@@ -52,7 +52,7 @@ Appen skickar bara fasta etiketter till `dataLayer`. Aldrig företagsnamn, texti
 | Event                    | Parametrar                    | När                                                                                               |
 | ------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------- |
 | `feature_used`           | `feature_name`                | import, export, application_add, application_edit, application_delete, filter_reset, theme_toggle |
-| `filter_used`            | `filter_field`, `filter_mode` | när ett filter ändras                                                                             |
+| `filter_used`            | `filter_field`, `filter_mode`, `filter_selection` | när ett filter ändras; statuskryssrutor anger `selected` eller `deselected`, övriga filter och snabbval anger `null` |
 | `application_field_used` | `field_name`, `save_type`     | ett event per ifyllt (ny) eller ändrat (redigering) fält vid sparning                             |
 
 Alla pushar till `dataLayer` loggas i webbläsarens konsol som `[GTM dataLayer]`, vilket underlättar felsökning.
@@ -66,7 +66,7 @@ För varje event:
 3. Skapa en GA4 Event-tagg med ditt mätvärdes-ID, parametrarna och extra samtycke `analytics_storage`.
 4. Testa i Preview och publicera containern.
 
-I GA4: registrera parametrarna (`feature_name`, `filter_field`, `filter_mode`, `field_name`, `save_type`) som anpassade dimensioner med omfång Händelse.
+I GA4: registrera parametrarna (`feature_name`, `filter_field`, `filter_mode`, `filter_selection`, `field_name`, `save_type`) som anpassade dimensioner med omfång Händelse.
 
 ## Struktur
 

@@ -124,7 +124,7 @@ export function startApp() {
     info: must("filter-info"),
     onChange: (field, mode) => store.setFilter(field, mode),
     // Track filter usage without sending free-text filter contents.
-    onUse: (field, mode) => analytics.trackFilter(field, mode),
+    onUse: (field, mode, selected) => analytics.trackFilter(field, mode, selected),
     onReset: () => {
       store.resetFilters();
       analytics.trackFeature("filter_reset");

@@ -176,7 +176,7 @@ export function createAnalyticsConsent(toggle, dialog, { onError = () => {} } = 
         });
       }
     },
-    trackFilter(field, mode) {
+    trackFilter(field, mode, selected) {
       if (!enabled || !FILTER_FIELDS.has(field)) return;
 
       if (mode === undefined && field !== "company") return;
@@ -187,6 +187,9 @@ export function createAnalyticsConsent(toggle, dialog, { onError = () => {} } = 
         event: "filter_used",
         filter_field: field,
         filter_mode: filterMode,
+        filter_selection: field === "status" && typeof selected === "boolean"
+          ? (selected ? "selected" : "deselected")
+          : null,
       });
     },
   };
