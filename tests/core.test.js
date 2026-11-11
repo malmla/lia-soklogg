@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import ExcelJS from "exceljs";
-import { isIncomplete, validateValues } from "../js/model/application.js";
-import { createFilters, EMPTY_FILTER_VALUE, matchesFilters } from "../js/model/filters.js";
+import { isIncomplete, STATUSES, validateValues } from "../js/model/application.js";
+import { createFilters, EMPTY_FILTER_VALUE, EXCLUDE_REJECTED_FILTER_VALUE, matchesFilters } from "../js/model/filters.js";
 import { planImport } from "../js/model/importPlan.js";
 import { sortApplications } from "../js/model/sorting.js";
 import { getDashboardMetrics, nextMilestone } from "../js/components/dashboard.js";
@@ -48,6 +48,8 @@ test("page element IDs are unique and app feedback has a distinct target from ap
     const select = html.match(new RegExp(`<select id="${id}"[\\s\\S]*?</select>`))?.[0] ?? "";
     assert.match(select, /<option value="\[tom\]">\[tom\]<\/option>/, `${id} must offer [tom]`);
   }
+  const statusFilter = html.match(/<select id="filter-status"[\s\S]*?<\/select>/)?.[0] ?? "";
+  assert.ok(statusFilter.includes(`<option value="${EXCLUDE_REJECTED_FILTER_VALUE}">Alla utom avslag</option>`));
   assert.match(html, /placeholder="Sök företagsnamn eller \[tom\]"/);
 });
 
@@ -231,6 +233,20 @@ test("filters combine with AND and follow-up filters compare against today", () 
   followUp.followUp = "upcoming";
   assert.equal(matchesFilters({ ...app, followUpDate: "2026-11-01" }, followUp, today), true);
   assert.equal(matchesFilters(app, followUp, today), false);
+});
+
+test("status filter can exclude rejections while including all other and empty statuses", () => {
+  const filters = createFilters();
+  filters.status = EXCLUDE_REJECTED_FILTER_VALUE;
+  for (const status of [...STATUSES, ""]) {
+    assert.equal(matchesFilters({ status }, filters), status !== "Avslag", `status: ${status || "[tom]"}`);
+  }
+  assert.equal(matchesFilters({}, filters), true);
+
+  filters.interview = "Ja";
+  assert.equal(matchesFilters({ status: "Ansökan skickad", interview: "Ja" }, filters), true);
+  assert.equal(matchesFilters({ status: "Ansökan skickad", interview: "Nej" }, filters), false);
+  assert.equal(matchesFilters({ status: "Avslag", interview: "Ja" }, filters), false);
 });
 
 test("filters can find missing values for every filterable field", () => {

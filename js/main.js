@@ -123,6 +123,7 @@ export function startApp() {
     resetButton: must("filter-reset"),
     info: must("filter-info"),
     onChange: (field, mode) => store.setFilter(field, mode),
+    // Track filter usage without sending free-text filter contents.
     onUse: (field, mode) => analytics.trackFilter(field, mode),
     onReset: () => {
       store.resetFilters();

@@ -1,3 +1,5 @@
+import { EXCLUDE_REJECTED_FILTER_VALUE } from "../model/filters.js";
+
 const CONSENT_KEY = "lia-analytics-consent";
 const GTM_ID = "GTM-K2Z8CDDC";
 const TRACKED_FEATURES = new Set([
@@ -26,6 +28,7 @@ const FILTER_MODES = new Map([
   ["Kontakt etablerad", "contact_established"],
   ["Intervju bokad", "interview_booked"],
   ["Avslag", "rejected"],
+  [EXCLUDE_REJECTED_FILTER_VALUE, "exclude_rejected"],
   ["LIA-plats klar", "placement_secured"],
 ]);
 
