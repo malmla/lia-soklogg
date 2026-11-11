@@ -418,20 +418,6 @@
                 </datalist>
               </div>
               <div class="field">
-                <label for="filter-status">Status</label>
-                <select id="filter-status" data-filter="status">
-                  <option value="">Alla</option>
-                  <option value="exclude-rejected">Alla utom avslag</option>
-                  <option value="[tom]">[tom]</option>
-                  <option>Ej kontaktat</option>
-                  <option>Ansökan skickad</option>
-                  <option>Kontakt etablerad</option>
-                  <option>Intervju bokad</option>
-                  <option>Avslag</option>
-                  <option>LIA-plats klar</option>
-                </select>
-              </div>
-              <div class="field">
                 <label for="filter-interview">Intervju</label>
                 <select id="filter-interview" data-filter="interview">
                   <option value="">Alla</option>
@@ -458,6 +444,22 @@
                   <option value="upcoming">Kommande</option>
                 </select>
               </div>
+              <fieldset class="status-filter">
+                <legend>Status att visa</legend>
+                <div class="status-filter-options">
+                  <label><input type="checkbox" name="filter-status" value="[tom]" checked /> [tom]</label>
+                  <label><input type="checkbox" name="filter-status" value="Ej kontaktat" checked /> Ej kontaktat</label>
+                  <label><input type="checkbox" name="filter-status" value="Ansökan skickad" checked /> Ansökan skickad</label>
+                  <label><input type="checkbox" name="filter-status" value="Kontakt etablerad" checked /> Kontakt etablerad</label>
+                  <label><input type="checkbox" name="filter-status" value="Intervju bokad" checked /> Intervju bokad</label>
+                  <label><input type="checkbox" name="filter-status" value="Avslag" checked /> Avslag</label>
+                  <label><input type="checkbox" name="filter-status" value="LIA-plats klar" checked /> LIA-plats klar</label>
+                </div>
+                <div class="status-filter-actions">
+                  <button type="button" class="btn small" data-status-preset="all">Välj alla</button>
+                  <button type="button" class="btn small" data-status-preset="exclude-rejected">Alla utom avslag</button>
+                </div>
+              </fieldset>
               <button type="button" class="btn small" id="filter-reset" hidden>
                 Rensa filter
               </button>

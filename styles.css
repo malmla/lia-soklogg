@@ -830,6 +830,43 @@ p.status {
   flex: 1 1 140px;
 }
 
+.status-filter {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin: 0;
+  padding: .75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.status-filter legend {
+  padding: 0 .25rem;
+  font-size: .875rem;
+  font-weight: 600;
+}
+
+.status-filter-options, .status-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1rem;
+}
+
+.status-filter-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-weight: 400;
+}
+
+.status-filter-options input {
+  width: auto;
+  margin: 0;
+}
+
+.status-filter-actions {
+  margin-top: .75rem;
+}
+
 .filter-info {
   font-size: .85rem;
   color: var(--muted);

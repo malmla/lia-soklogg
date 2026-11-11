@@ -8,7 +8,7 @@ Projektet används också som övning i Google Analytics 4 (GA4) och Google Tag 
 
 - Lägg till, redigera och ta bort ansökningar (datum, företag, ort, kontaktperson, titel, e-post, telefon, kontaktsätt, status, svar, intervju, erbjudande, kommentar, nästa steg, uppföljningsdatum, anteckningar).
 - Sortering efter datum, nyast först.
-- Filter på företag, status, intervju, erbjudande och uppföljning, inklusive alla statusar utom avslag.
+- Filter på företag, status, intervju, erbjudande och uppföljning. Välj vilka statusar som ska visas, inklusive tom status, eller använd snabbvalet alla utom avslag.
 - Översikt över antal företag, uppföljningar, aktiv dialog, intervjuer och erbjudanden samt nästa deadline.
 - Export till Excel som en fullständig kopia av mallen (`assets/lia-soklogg-mall.xlsx`) med rullgardiner och formler bevarade.
 - Import från LIA-sökloggens Excelmall och bransch-tracker-export, med hantering av konflikter.

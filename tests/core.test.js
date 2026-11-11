@@ -3,11 +3,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import ExcelJS from "exceljs";
 import { isIncomplete, STATUSES, validateValues } from "../js/model/application.js";
-import { createFilters, EMPTY_FILTER_VALUE, EXCLUDE_REJECTED_FILTER_VALUE, matchesFilters } from "../js/model/filters.js";
+import { createFilters, EMPTY_FILTER_VALUE, EXCLUDE_REJECTED_FILTER_VALUE, isFiltering, matchesFilters } from "../js/model/filters.js";
 import { planImport } from "../js/model/importPlan.js";
 import { sortApplications } from "../js/model/sorting.js";
 import { getDashboardMetrics, nextMilestone } from "../js/components/dashboard.js";
 import { findHttpUrls } from "../js/components/applicationCard.js";
+import { createFilterBar } from "../js/components/filterBar.js";
 import { exportWorkbook, ExcelError, importWorkbook } from "../js/services/excel.js";
 import { createStorage } from "../js/services/storage.js";
 import { createStore } from "../js/state/store.js";
@@ -44,12 +45,14 @@ test("page element IDs are unique and app feedback has a distinct target from ap
   assert.match(html, /<select id="status" name="status"/);
   assert.match(html, /<div id="app-status" class="status"/);
   assert.match(html, /<details class="filter-panel">/);
-  for (const id of ["filter-status", "filter-interview", "filter-offered", "filter-followup"]) {
+  for (const id of ["filter-interview", "filter-offered", "filter-followup"]) {
     const select = html.match(new RegExp(`<select id="${id}"[\\s\\S]*?</select>`))?.[0] ?? "";
     assert.match(select, /<option value="\[tom\]">\[tom\]<\/option>/, `${id} must offer [tom]`);
   }
-  const statusFilter = html.match(/<select id="filter-status"[\s\S]*?<\/select>/)?.[0] ?? "";
-  assert.ok(statusFilter.includes(`<option value="${EXCLUDE_REJECTED_FILTER_VALUE}">Alla utom avslag</option>`));
+  const statusFilter = html.match(/<fieldset class="status-filter">[\s\S]*?<\/fieldset>/)?.[0] ?? "";
+  const statusValues = [...statusFilter.matchAll(/name="filter-status" value="([^"]+)" checked/g)].map((match) => match[1]);
+  assert.deepEqual(statusValues, [EMPTY_FILTER_VALUE, ...STATUSES]);
+  assert.ok(statusFilter.includes(`data-status-preset="${EXCLUDE_REJECTED_FILTER_VALUE}"`));
   assert.match(html, /placeholder="Sök företagsnamn eller \[tom\]"/);
 });
 
@@ -218,7 +221,7 @@ test("import can create a separately named entry instead of updating an existing
 test("filters combine with AND and follow-up filters compare against today", () => {
   const today = "2026-11-01";
   const filters = createFilters();
-  filters.status = "Ansökan skickad";
+  filters.status = ["Ansökan skickad"];
   filters.interview = "Nej";
   const app = { company: "IKEA", status: "Ansökan skickad", interview: "Nej", offered: "", followUpDate: "" };
   assert.equal(matchesFilters(app, filters, today), true);
@@ -237,7 +240,7 @@ test("filters combine with AND and follow-up filters compare against today", () 
 
 test("status filter can exclude rejections while including all other and empty statuses", () => {
   const filters = createFilters();
-  filters.status = EXCLUDE_REJECTED_FILTER_VALUE;
+  filters.status = filters.status.filter((status) => status !== "Avslag");
   for (const status of [...STATUSES, ""]) {
     assert.equal(matchesFilters({ status }, filters), status !== "Avslag", `status: ${status || "[tom]"}`);
   }
@@ -247,6 +250,84 @@ test("status filter can exclude rejections while including all other and empty s
   assert.equal(matchesFilters({ status: "Ansökan skickad", interview: "Ja" }, filters), true);
   assert.equal(matchesFilters({ status: "Ansökan skickad", interview: "Nej" }, filters), false);
   assert.equal(matchesFilters({ status: "Avslag", interview: "Ja" }, filters), false);
+});
+
+test("status filters support multiple selections, none, all and reset", () => {
+  const store = createTestStore();
+  const filters = store.getState().filters;
+  assert.equal(isFiltering(filters), false);
+  assert.equal(matchesFilters({ status: "Avslag" }, filters), true);
+
+  store.setFilter("status", ["Ansökan skickad", EMPTY_FILTER_VALUE]);
+  assert.equal(isFiltering(store.getState().filters), true);
+  assert.equal(matchesFilters({ status: "Ansökan skickad" }, store.getState().filters), true);
+  assert.equal(matchesFilters({ status: "" }, store.getState().filters), true);
+  assert.equal(matchesFilters({ status: "Avslag" }, store.getState().filters), false);
+
+  store.setFilter("status", []);
+  assert.equal(isFiltering(store.getState().filters), true);
+  assert.equal(matchesFilters({ status: "" }, store.getState().filters), false);
+  assert.equal(matchesFilters({ status: "Avslag" }, store.getState().filters), false);
+  store.resetFilters();
+  assert.equal(isFiltering(store.getState().filters), false);
+  assert.equal(matchesFilters({ status: "Avslag" }, store.getState().filters), true);
+});
+
+test("status checkbox controls and presets update filter state and reset", () => {
+  class Control extends EventTarget {
+    constructor(value = "") {
+      super();
+      this.value = value;
+      this.checked = true;
+      this.dataset = {};
+    }
+    click() { this.dispatchEvent(new Event("click")); }
+  }
+  const statuses = [EMPTY_FILTER_VALUE, ...STATUSES].map((value) => new Control(value));
+  const all = new Control();
+  all.dataset.statusPreset = "all";
+  const exclude = new Control();
+  exclude.dataset.statusPreset = EXCLUDE_REJECTED_FILTER_VALUE;
+  const reset = new Control();
+  const info = {};
+  const root = {
+    querySelectorAll(selector) {
+      if (selector === 'input[name="filter-status"]') return statuses;
+      if (selector === "[data-status-preset]") return [all, exclude];
+      return [];
+    },
+  };
+  const store = createTestStore();
+  const events = [];
+  const bar = createFilterBar(root, {
+    resetButton: reset,
+    info,
+    onChange: (field, value) => store.setFilter(field, value),
+    onUse: (field, value) => events.push([field, value]),
+    onReset: () => store.resetFilters(),
+  });
+  const render = () => bar.update({ filters: store.getState().filters, filtering: isFiltering(store.getState().filters), shown: 1, total: 2 });
+  store.subscribe(render);
+  render();
+  assert.equal(reset.hidden, true);
+
+  exclude.click();
+  assert.equal(statuses.find((item) => item.value === "Avslag").checked, false);
+  assert.equal(statuses.find((item) => item.value === EMPTY_FILTER_VALUE).checked, true);
+  assert.equal(info.textContent, "Visar 1 av 2");
+  assert.deepEqual(events.at(-1), ["status", EXCLUDE_REJECTED_FILTER_VALUE]);
+
+  statuses[0].checked = false;
+  statuses[0].dispatchEvent(new Event("change"));
+  assert.equal(store.getState().filters.status.includes(EMPTY_FILTER_VALUE), false);
+  all.click();
+  assert.equal(reset.hidden, true);
+  assert.ok(statuses.every((item) => item.checked));
+
+  exclude.click();
+  reset.click();
+  assert.ok(statuses.every((item) => item.checked));
+  assert.equal(reset.hidden, true);
 });
 
 test("filters can find missing values for every filterable field", () => {
@@ -267,7 +348,7 @@ test("filters can find missing values for every filterable field", () => {
     ["followUp", "followUpDate"],
   ]) {
     const filters = createFilters();
-    filters[field] = EMPTY_FILTER_VALUE;
+    filters[field] = field === "status" ? [EMPTY_FILTER_VALUE] : EMPTY_FILTER_VALUE;
     assert.equal(matchesFilters(missing, filters, "2026-11-01"), true, `${field} should match empty`);
     assert.equal(matchesFilters(populated, filters, "2026-11-01"), false, `${field} should reject filled`);
     assert.equal(

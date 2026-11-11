@@ -1,4 +1,4 @@
-import { EXCLUDE_REJECTED_FILTER_VALUE } from "../model/filters.js";
+import { EMPTY_FILTER_VALUE, EXCLUDE_REJECTED_FILTER_VALUE } from "../model/filters.js";
 
 const CONSENT_KEY = "lia-analytics-consent";
 const GTM_ID = "GTM-K2Z8CDDC";
@@ -19,6 +19,7 @@ const SAVE_TYPES = new Set(["add", "edit"]);
 const FILTER_FIELDS = new Set(["company", "status", "interview", "offered", "followUp"]);
 const FILTER_MODES = new Map([
   ["", "all"],
+  [EMPTY_FILTER_VALUE, "empty"],
   ["Ja", "yes"],
   ["Nej", "no"],
   ["overdue", "overdue"],
